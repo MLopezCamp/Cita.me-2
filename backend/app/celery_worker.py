@@ -1,10 +1,10 @@
 from celery import Celery
-from app.config import settings
+from .config import config
 
 celery_app = Celery(
     "cita_medica",
-    broker=settings.redis_url,
-    backend=settings.rabbitmq_url
+    broker=config.CELERY_BROKER_URL,
+    backend=config.CELERY_RESULT_BACKEND
 )
 
 celery_app.conf.update(

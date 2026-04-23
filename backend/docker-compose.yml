@@ -1,11 +1,11 @@
 version: '3.8'
 
 services:
-  db:
+  postgres:
     image: postgres:15
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: citamedica
     ports:
       - "5432:5432"
@@ -13,40 +13,18 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   redis:
-    image: redis:7-alpine
+    image: redis:7
     ports:
       - "6379:6379"
 
   rabbitmq:
-    image: rabbitmq:3-management-alpine
+    image: rabbitmq:3-management
     ports:
       - "5672:5672"
       - "15672:15672"
-
-  backend:
-    build: .
-    ports:
-      - "8000:8000"
-    depends_on:
-      - db
-      - redis
-      - rabbitmq
-    env_file:
-      - .env
-    volumes:
-      - ./app:/app/app
-
-  worker:
-    build: .
-    command: celery -A app.tasks.celery_app worker --loglevel=info
-    depends_on:
-      - redis
-      - rabbitmq
-      - db
-    env_file:
-      - .env
-    volumes:
-      - ./app:/app/app
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
 
 volumes:
   postgres_data:

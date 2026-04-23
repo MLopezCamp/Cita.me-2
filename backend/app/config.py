@@ -1,16 +1,14 @@
-from pydantic_settings import BaseSettings
-from typing import Optional
+import os
+from dotenv import load_dotenv
 
-class Settings(BaseSettings):
-    database_url: str
-    redis_url: str
-    rabbitmq_url: str
-    secret_key: str
-    algorithm: str = "HS256"
-    access_token_expire_minutes: int = 30
+load_dotenv()
 
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
+class Config:
+    REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672//")
+    DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg2://postgres:postgres@localhost/citamedica")
+    CELERY_BROKER_URL = REDIS_URL
+    CELERY_RESULT_BACKEND = RABBITMQ_URL
+    LOCK_EXPIRE_SECONDS = 10
 
-settings = Settings()
+config = Config()
