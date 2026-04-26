@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Variables globales */
+:root {
+  --bg: #f8faf8;
+  --fg: #1a2e1a;
+  --muted: #6b7b6b;
+  --accent: #16a34a;
+  --card: #ffffff;
+  --border: #d4e4d4;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+/* Patrón de fondo sutil */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(22, 163, 74, 0.06) 0%, transparent 50%),
+    radial-gradient(circle at 85% 80%, rgba(22, 163, 74, 0.04) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+/* Animación de entrada para cards */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card-animate {
+  animation: fadeUp 0.35s ease-out both;
+}
+
+/* Scrollbar personalizado */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #c1d4c1;
+  border-radius: 3px;
+}
