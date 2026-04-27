@@ -1,50 +1,51 @@
-# Cita.me - Sistema Distribuido de Reserva de Citas Medica
+# Cita.me - Sistema Distribuido de Reserva de Citas Medicas
 
-Sistema distribuido de agendamiento de citas médicas desarrollado con arquitectura moderna basada en servicios. El proyecto integra backend escalable con FastAPI, frontend en Next.js, base de datos relacional, Redis para caché, RabbitMQ para mensajería asíncrona y Docker Compose para orquestación local.
+Sistema distribuido de agendamiento de citas medicas desarrollado con arquitectura basada en servicios. El proyecto integra backend con FastAPI (Python), frontend en Next.js, base de datos relacional, Redis para cache y locking distribuido, RabbitMQ para mensajeria asincrona, y Docker Compose para orquestacion local.
 
 ---
 
 ## Resumen
 
-Cita.me Redis permite administrar pacientes, doctores, horarios disponibles y reservas de citas médicas mediante una plataforma web con roles diferenciados.
+Cita.me permite administrar pacientes, doctores, horarios disponibles y reservas de citas medicas mediante una plataforma web con roles diferenciados.
 
-El sistema fue diseñado aplicando conceptos de:
+El sistema fue disenado aplicando conceptos de:
 
 - Sistemas distribuidos
-- Programación concurrente
+- Programacion concurrente
 - APIs REST
 - Cache distribuido
-- Mensajería entre servicios
+- Locking distribuido con Redis
+- Mensajeria asincrona con RabbitMQ
 - Despliegue con contenedores
 
 ---
 
-## Stack Tecnológico
+## Stack Tecnologico
 
-| Área | Tecnología |
-|---|---|
-| Backend | Python, FastAPI |
-| ORM | SQLAlchemy |
-| Frontend | Next.js, React |
-| Estilos | Tailwind CSS |
-| Cache | Redis |
-| Mensajería | RabbitMQ |
-| Base de Datos | SQL |
+| Area         | Tecnologia      |
+|--------------|-----------------|
+| Backend      | Python, FastAPI |
+| ORM          | SQLAlchemy      |
+| Frontend     | Next.js, React  |
+| Estilos      | Tailwind CSS    |
+| Cache / Lock | Redis           |
+| Mensajeria   | RabbitMQ        |
+| Base de Datos| SQLite          |
 | Contenedores | Docker, Docker Compose |
 
 ---
 
 ## Arquitectura General
 
-```text
+```
 Frontend Next.js
       |
       v
 FastAPI Backend
  |      |      |
- |      |      └── RabbitMQ
+ |      |      └── RabbitMQ (eventos asincronos)
  |      |
- |      └── Redis Cache
+ |      └── Redis (cache + locking distribuido)
  |
  └── Base de Datos SQLite
 ```
@@ -53,8 +54,8 @@ FastAPI Backend
 
 ## Estructura del Proyecto
 
-```text
-cita.me-redis/
+```
+Cita.me-2/
 ├── backend/
 │   ├── main.py
 │   ├── config.py
@@ -105,14 +106,14 @@ cita.me-redis/
 - Registro de doctores
 - Especialidades
 - Consulta de agenda
-- Portal médico
+- Portal medico
 
 ### Horarios
 
-- Configuración de disponibilidad
+- Configuracion de disponibilidad
 - Consulta de horarios por doctor
 
-### Citas Médicas
+### Citas Medicas
 
 - Crear cita
 - Consultar cita
@@ -127,79 +128,79 @@ cita.me-redis/
 - Portal del paciente
 - Portal del doctor
 - Portal del Administrador
-- Inicio de sesión por rol
+- Inicio de sesion por rol
 
 ---
 
 ## Endpoints de la API
 
-## Generales
+### Generales
 
-| Método | Endpoint |
-|---|---|
-| GET | / |
-| GET | /health |
+| Metodo | Endpoint |
+|--------|----------|
+| GET    | /        |
+| GET    | /health  |
 
-## Auth
+### Auth
 
-| Método | Endpoint |
-|---|---|
-| POST | /auth/login |
-| GET | /auth/doctores-lista |
+| Metodo | Endpoint             |
+|--------|----------------------|
+| POST   | /auth/login          |
+| GET    | /auth/doctores-lista |
 
-## Pacientes
+### Pacientes
 
-| Método | Endpoint |
-|---|---|
-| POST | /pacientes/ |
-| GET | /pacientes/ |
-| GET | /pacientes/{id} |
-| GET | /pacientes/documento/{documento} |
+| Metodo | Endpoint                         |
+|--------|----------------------------------|
+| POST   | /pacientes/                      |
+| GET    | /pacientes/                      |
+| GET    | /pacientes/{id}                  |
+| GET    | /pacientes/documento/{documento} |
 
-## Doctores
+### Doctores
 
-| Método | Endpoint |
-|---|---|
-| POST | /doctores/ |
-| GET | /doctores/ |
-| GET | /doctores/{id} |
+| Metodo | Endpoint         |
+|--------|------------------|
+| POST   | /doctores/       |
+| GET    | /doctores/       |
+| GET    | /doctores/{id}   |
 
-## Horarios
+### Horarios
 
-| Método | Endpoint |
-|---|---|
-| POST | /horarios/ |
-| GET | /horarios/doctor/{doctor_id} |
+| Metodo | Endpoint                      |
+|--------|-------------------------------|
+| POST   | /horarios/                    |
+| GET    | /horarios/doctor/{doctor_id}  |
 
-## Citas
+### Citas
 
-| Método | Endpoint |
-|---|---|
-| POST | /citas/ |
-| GET | /citas/ |
-| GET | /citas/{id} |
-| GET | /citas/paciente/{paciente_id} |
-| GET | /citas/doctor/{doctor_id} |
-| GET | /citas/disponibles/{doctor_id} |
-| PUT | /citas/{id}/estado |
+| Metodo | Endpoint                          |
+|--------|-----------------------------------|
+| POST   | /citas/                           |
+| GET    | /citas/                           |
+| GET    | /citas/{id}                       |
+| GET    | /citas/paciente/{paciente_id}     |
+| GET    | /citas/doctor/{doctor_id}         |
+| GET    | /citas/disponibles/{doctor_id}    |
+| PUT    | /citas/{id}/estado                |
 
-## Portal Paciente
+### Portal Paciente
 
-| Método | Endpoint |
-|---|---|
-| GET | /portal/mis-citas |
-| POST | /portal/pedir-cita |
-| PUT | /portal/cancelar/{id} |
-| GET | /portal/doctores-disponibles |
+| Metodo | Endpoint                        |
+|--------|---------------------------------|
+| GET    | /portal/mis-citas               |
+| POST   | /portal/pedir-cita              |
+| PUT    | /portal/cancelar/{id}           |
+| GET    | /portal/doctores-disponibles    |
 
-## Portal Doctor
+### Portal Doctor
 
-| Método | Endpoint |
-|---|---|
-| GET | /doctor-portal/mis-citas |
-| GET | /doctor-portal/cita/{id} |
-| PUT | /doctor-portal/completar/{id} |
-| PUT | /doctor-portal/confirmar/{id} |
+| Metodo | Endpoint                        |
+|--------|---------------------------------|
+| GET    | /doctor-portal/mis-citas        |
+| GET    | /doctor-portal/cita/{id}        |
+| PUT    | /doctor-portal/completar/{id}   |
+| PUT    | /doctor-portal/confirmar/{id}   |
 
 ---
 
@@ -207,29 +208,28 @@ cita.me-redis/
 
 Redis se utiliza para:
 
-- Almacenar respuestas frecuentes
+- Almacenar respuestas frecuentes en cache
 - Mejorar tiempos de consulta
 - Reducir carga de base de datos
-- Cachear disponibilidad médica
-
----
+- Cachear disponibilidad medica
+- Locking distribuido para reservas concurrentes
 
 ## RabbitMQ
 
 RabbitMQ se utiliza para:
 
 - Eventos al crear citas
-- Confirmaciones
+- Confirmaciones de citas
 - Cambios de estado
-- Comunicación desacoplada
+- Comunicacion asincrona desacoplada entre componentes
 
 ---
 
-## Instalación Rápida
+## Instalacion Rapida
 
 ```bash
 git clone https://github.com/MLopezCamp/Cita.me-2.git
-cd cita.me-redis
+cd Cita.me-2
 docker-compose up --build
 ```
 
@@ -237,14 +237,14 @@ docker-compose up --build
 
 ## Acceso Local
 
-| Servicio | URL |
-|---|---|
-| Frontend | http://localhost:3000 |
-| Backend | http://localhost:8000 |
-| Swagger | http://localhost:8000/docs |
+| Servicio | URL                          |
+|----------|------------------------------|
+| Frontend | http://localhost:3000        |
+| Backend  | http://localhost:8000        |
+| Swagger  | http://localhost:8000/docs   |
 
 ---
 
 ## Licencia
 
-Proyecto académico y educativo.
+Proyecto academico y educativo.
