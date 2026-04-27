@@ -1,250 +1,113 @@
-# Cita.me - Sistema Distribuido de Reserva de Citas Medicas
+<div align="center">
 
-Sistema distribuido de agendamiento de citas medicas desarrollado con arquitectura basada en servicios. El proyecto integra backend con FastAPI (Python), frontend en Next.js, base de datos relacional, Redis para cache y locking distribuido, RabbitMQ para mensajeria asincrona, y Docker Compose para orquestacion local.
+# Cita.me
+
+### Sistema Distribuido de Reserva de Citas Medicas
+
+*Proyecto academico · Sistemas Distribuidos y Programacion Concurrente*
 
 ---
 
-## Resumen
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.110-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-14-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-7-DC382D?style=for-the-badge&logo=redis&logoColor=white)
+![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 
-Cita.me permite administrar pacientes, doctores, horarios disponibles y reservas de citas medicas mediante una plataforma web con roles diferenciados.
+</div>
 
-El sistema fue disenado aplicando conceptos de:
+---
 
-- Sistemas distribuidos
-- Programacion concurrente
-- APIs REST
-- Cache distribuido
-- Locking distribuido con Redis
-- Mensajeria asincrona con RabbitMQ
-- Despliegue con contenedores
+## Tabla de Contenidos
+
+- [Descripcion](#descripcion)
+- [Stack Tecnologico](#stack-tecnologico)
+- [Arquitectura](#arquitectura)
+- [Estructura del Proyecto](#estructura-del-proyecto)
+- [Funcionalidades](#funcionalidades)
+- [Endpoints de la API](#endpoints-de-la-api)
+- [Componentes Clave](#componentes-clave)
+- [Instalacion Rapida](#instalacion-rapida)
+- [Servicios y Puertos](#servicios-y-puertos)
+
+---
+
+## Descripcion
+
+**Cita.me** es una plataforma web para el agendamiento de citas medicas, construida como sistema distribuido con arquitectura orientada a servicios. Permite gestionar pacientes, doctores, horarios y reservas con roles diferenciados.
+
+El proyecto aplica en conjunto los siguientes conceptos:
+
+| Concepto | Implementacion |
+|---|---|
+| Sistemas Distribuidos | Multiples servicios orquestados con Docker Compose |
+| Programacion Concurrente | Locking distribuido con Redis para reservas simultaneas |
+| APIs REST | Backend con FastAPI y documentacion Swagger automatica |
+| Cache Distribuido | Redis para respuestas frecuentes y disponibilidad medica |
+| Mensajeria Asincrona | RabbitMQ para eventos desacoplados entre componentes |
+| Contenedores | Cada servicio corre en su propio contenedor Docker |
 
 ---
 
 ## Stack Tecnologico
 
-| Area         | Tecnologia      |
-|--------------|-----------------|
-| Backend      | Python, FastAPI |
-| ORM          | SQLAlchemy      |
-| Frontend     | Next.js, React  |
-| Estilos      | Tailwind CSS    |
-| Cache / Lock | Redis           |
-| Mensajeria   | RabbitMQ        |
-| Base de Datos| SQLite          |
-| Contenedores | Docker, Docker Compose |
+<div align="center">
+
+| Capa | Tecnologia | Rol |
+|---|---|---|
+| **Backend** | Python · FastAPI | API REST + logica de negocio |
+| **ORM** | SQLAlchemy (async) | Acceso a base de datos |
+| **Frontend** | Next.js 14 · React | Interfaz de usuario |
+| **Estilos** | Tailwind CSS | Diseno responsivo |
+| **Cache / Lock** | Redis 7 | Cache + locking distribuido |
+| **Mensajeria** | RabbitMQ 3 | Cola de eventos asincronos |
+| **Base de Datos** | SQLite (aiosqlite) | Persistencia de datos |
+| **Contenedores** | Docker · Docker Compose | Orquestacion de servicios |
+
+</div>
 
 ---
 
-## Arquitectura General
+## Arquitectura
 
-```
-Frontend Next.js
-      |
-      v
-FastAPI Backend
- |      |      |
- |      |      └── RabbitMQ (eventos asincronos)
- |      |
- |      └── Redis (cache + locking distribuido)
- |
- └── Base de Datos SQLite
-```
+```mermaid
+graph TD
+    U([Usuario / Navegador])
 
----
+    subgraph Frontend["Frontend  —  Next.js · React · Tailwind"]
+        FE[Paginas & Componentes]
+    end
 
-## Estructura del Proyecto
+    subgraph Backend["Backend  —  FastAPI · SQLAlchemy"]
+        API[Routers REST]
+        SVC[Servicios de Negocio]
+        API --> SVC
+    end
 
-```
-Cita.me-2/
-├── backend/
-│   ├── main.py
-│   ├── config.py
-│   ├── database.py
-│   ├── models.py
-│   ├── schemas.py
-│   ├── redis_client.py
-│   ├── routers/
-│   │   ├── auth.py
-│   │   ├── pacientes.py
-│   │   ├── doctores.py
-│   │   ├── horarios.py
-│   │   ├── citas.py
-│   │   ├── portal.py
-│   │   └── doctor_portal.py
-│   ├── services/
-│   │   └── cita_service.py
-│   ├── messaging/
-│   │   ├── producer.py
-│   │   └── consumer.py
-│   ├── test_concurrencia.py
-│   └── test_rabbitmq.py
-│
-├── frontend/
-│   ├── src/app/
-│   ├── src/components/
-│   ├── src/hooks/
-│   └── src/services/
-│
-├── db_viewer/
-├── docker-compose.yml
-└── README.md
-```
+    subgraph Mensajeria["Mensajeria  —  RabbitMQ"]
+        MQ[(Cola de Eventos)]
+    end
 
----
+    subgraph Cache["Cache & Locking  —  Redis"]
+        RD[(Redis)]
+    end
 
-## Funcionalidades Principales
+    subgraph DB["Persistencia  —  SQLite"]
+        BD[(citame.db)]
+    end
 
-### Pacientes
+    subgraph Observabilidad["Observabilidad"]
+        DBV[DB Viewer · :8080]
+        RC[Redis Commander · :8081]
+        SW[Swagger UI · :8000/docs]
+    end
 
-- Registro de pacientes
-- Consulta por ID
-- Consulta por documento
-- Historial de citas
-
-### Doctores
-
-- Registro de doctores
-- Especialidades
-- Consulta de agenda
-- Portal medico
-
-### Horarios
-
-- Configuracion de disponibilidad
-- Consulta de horarios por doctor
-
-### Citas Medicas
-
-- Crear cita
-- Consultar cita
-- Cancelar cita
-- Confirmar cita
-- Completar cita
-- Ver citas por paciente
-- Ver citas por doctor
-
-### Portales
-
-- Portal del paciente
-- Portal del doctor
-- Portal del Administrador
-- Inicio de sesion por rol
-
----
-
-## Endpoints de la API
-
-### Generales
-
-| Metodo | Endpoint |
-|--------|----------|
-| GET    | /        |
-| GET    | /health  |
-
-### Auth
-
-| Metodo | Endpoint             |
-|--------|----------------------|
-| POST   | /auth/login          |
-| GET    | /auth/doctores-lista |
-
-### Pacientes
-
-| Metodo | Endpoint                         |
-|--------|----------------------------------|
-| POST   | /pacientes/                      |
-| GET    | /pacientes/                      |
-| GET    | /pacientes/{id}                  |
-| GET    | /pacientes/documento/{documento} |
-
-### Doctores
-
-| Metodo | Endpoint         |
-|--------|------------------|
-| POST   | /doctores/       |
-| GET    | /doctores/       |
-| GET    | /doctores/{id}   |
-
-### Horarios
-
-| Metodo | Endpoint                      |
-|--------|-------------------------------|
-| POST   | /horarios/                    |
-| GET    | /horarios/doctor/{doctor_id}  |
-
-### Citas
-
-| Metodo | Endpoint                          |
-|--------|-----------------------------------|
-| POST   | /citas/                           |
-| GET    | /citas/                           |
-| GET    | /citas/{id}                       |
-| GET    | /citas/paciente/{paciente_id}     |
-| GET    | /citas/doctor/{doctor_id}         |
-| GET    | /citas/disponibles/{doctor_id}    |
-| PUT    | /citas/{id}/estado                |
-
-### Portal Paciente
-
-| Metodo | Endpoint                        |
-|--------|---------------------------------|
-| GET    | /portal/mis-citas               |
-| POST   | /portal/pedir-cita              |
-| PUT    | /portal/cancelar/{id}           |
-| GET    | /portal/doctores-disponibles    |
-
-### Portal Doctor
-
-| Metodo | Endpoint                        |
-|--------|---------------------------------|
-| GET    | /doctor-portal/mis-citas        |
-| GET    | /doctor-portal/cita/{id}        |
-| PUT    | /doctor-portal/completar/{id}   |
-| PUT    | /doctor-portal/confirmar/{id}   |
-
----
-
-## Redis
-
-Redis se utiliza para:
-
-- Almacenar respuestas frecuentes en cache
-- Mejorar tiempos de consulta
-- Reducir carga de base de datos
-- Cachear disponibilidad medica
-- Locking distribuido para reservas concurrentes
-
-## RabbitMQ
-
-RabbitMQ se utiliza para:
-
-- Eventos al crear citas
-- Confirmaciones de citas
-- Cambios de estado
-- Comunicacion asincrona desacoplada entre componentes
-
----
-
-## Instalacion Rapida
-
-```bash
-git clone https://github.com/MLopezCamp/Cita.me-2.git
-cd Cita.me-2
-docker-compose up --build
-```
-
----
-
-## Acceso Local
-
-| Servicio | URL                          |
-|----------|------------------------------|
-| Frontend | http://localhost:3000        |
-| Backend  | http://localhost:8000        |
-| Swagger  | http://localhost:8000/docs   |
-| Redis Commander | http://localhost:8081  |
----
-
-## Licencia
-
-Proyecto academico y educativo.
+    U -->|HTTP| FE
+    FE -->|REST API| API
+    SVC -->|pub/sub| MQ
+    SVC -->|get/set/lock| RD
+    SVC -->|ORM| BD
+    DBV -.->|lectura| BD
+    RC -.->|lectura| RD
+    SW -.->|docs| API
