@@ -242,7 +242,7 @@ docker-compose up --build
 | Frontend | http://localhost:3000        |
 | Backend  | http://localhost:8000        |
 | Swagger  | http://localhost:8000/docs   |
-
+| Redis Commander | http://localhost:8081  |
 ---
 
 ## Licencia
