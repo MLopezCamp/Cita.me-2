@@ -43,7 +43,6 @@
 - **Redis Commander (local)**: `http://localhost:8081`
 - **DB Viewer (local)**: `http://localhost:8080`
 
-> Tip: si publicas el frontend en GitHub Pages, agrega aquí el enlace a la demo.
 
 ---
 
