@@ -206,29 +206,6 @@ docker-compose up --build
 
 ---
 
-## GitHub Pages (frontend estático)
-
-GitHub Pages sirve **contenido estático**. Este proyecto es **full‑stack** y el frontend depende de una **API** (FastAPI).
-
-- **Qué sí se puede**: publicar el **frontend** como sitio estático (export) en Pages.
-- **Qué no se puede**: correr el backend en Pages, ni usar *rewrites* tipo servidor.
-
-### Recomendación
-
-- Despliega el **backend** en otro hosting y obtén una URL pública (ej. `https://mi-api.example.com`).
-- Configura el frontend para apuntar a esa API con `NEXT_PUBLIC_API_URL`.
-
-### Nota sobre Next.js
-
-Este repo usa Next.js 14. Para Pages normalmente se requiere un **export estático** y configurar `basePath` si publicas en `https://<user>.github.io/<repo>/`.
-
-Si quieres, puedo dejarte:
-
-- un workflow listo de GitHub Actions para Pages
-- ajustes mínimos para exportar (`frontend/next.config.js` + scripts)
-
----
-
 ## Licencia
 
 Proyecto académico y educativo.
