@@ -1,14 +1,20 @@
 title: Cita.me-2
-description: Sistema distribuido de reserva de citas médicas (FastAPI + Next.js)
+description: Sistema distribuido de reserva de citas medicas (FastAPI + Next.js)
 theme: jekyll-theme-cayman
 
 # GitHub Pages sirve el sitio en /<repo>/ (no en /)
 baseurl: "/Cita.me-2"
 
-# Evita que Jekyll intente procesar carpetas de código
+# Evita que Jekyll intente procesar carpetas de codigo
 exclude:
   - backend
   - frontend
   - db_viewer
   - docker-compose.yml
   - README.md
+
+# Configuracion de Markdown para que Jekyll no escape HTML
+kramdown:
+  input: GFM
+  hard_wrap: false
+  syntax_highlighter: rouge
