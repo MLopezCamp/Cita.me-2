@@ -1,8 +1,13 @@
 """
-cita.me — Cliente Redis async y locking distribuido.
-Redis previene condiciones de carrera al reservar citas concurrentemente.
+cita.me — Cliente Redis async, locking distribuido y coordinacion.
+
+Funcionalidades:
+- DistributedLock: Wrapper de redis.lock para compatibilidad
+- Locking explícito: set_lock_raw() con SET NX EX
+- Semaforo distribuido: acquire_semaphore() / release_semaphore()
+- Cache: cache_get() / cache_set() / cache_delete()
+- Coordinacion: check_service_health() / is_service_alive()
 """
-import asyncio
 import json
 import logging
 import redis.asyncio as redis
@@ -14,7 +19,7 @@ redis_client: redis.Redis | None = None
 
 
 async def init_redis() -> redis.Redis:
-    """Inicializar conexión async a Redis."""
+    """Inicializar conexion async a Redis."""
     global redis_client
     redis_client = redis.from_url(
         REDIS_URL,
@@ -27,7 +32,7 @@ async def init_redis() -> redis.Redis:
 
 
 async def close_redis():
-    """Cerrar conexión a Redis."""
+    """Cerrar conexion a Redis."""
     global redis_client
     if redis_client:
         await redis_client.close()
@@ -35,17 +40,7 @@ async def close_redis():
 
 
 class DistributedLock:
-    """
-    Lock distribuido con Redis para cita.me.
-
-    Uso:
-        lock = DistributedLock("cita:doctor_5:2025-01-15:10:00")
-        if await lock.acquire():
-            try:
-                # operación crítica
-            finally:
-                await lock.release()
-    """
+    """Lock distribuido usando redis.lock (wrapper interno)."""
 
     def __init__(self, resource_key: str, timeout: int = LOCK_TIMEOUT_SECONDS):
         self.redis = redis_client
@@ -54,11 +49,8 @@ class DistributedLock:
         self._lock = None
 
     async def acquire(self, wait_timeout: int = LOCK_WAIT_SECONDS) -> bool:
-        """Intentar adquirir el lock."""
         if not self.redis:
-            logger.warning("[cita.me/REDIS] Sin conexión, lock no disponible")
             return False
-
         self._lock = self.redis.lock(
             self.lock_key,
             timeout=self.timeout,
@@ -76,7 +68,6 @@ class DistributedLock:
             return False
 
     async def release(self):
-        """Liberar el lock."""
         if self._lock and self.redis:
             try:
                 await self._lock.release()
@@ -85,8 +76,89 @@ class DistributedLock:
                 logger.error("[cita.me/LOCK] Error liberando: %s", e)
 
 
+# ── Locking explicito con SET NX EX ──
+
+async def set_lock_raw(key: str, value: str = "1", ttl: int = 30) -> bool:
+    """Lock distribuido explicito: SET lock:citame:{key} {value} NX EX {ttl}."""
+    if not redis_client:
+        return False
+    lock_key = f"lock:citame:{key}"
+    try:
+        result = await redis_client.set(lock_key, value, nx=True, ex=ttl)
+        if result:
+            logger.info("[cita.me/LOCK-RAW] SET NX EX exitoso: %s", lock_key)
+        else:
+            logger.warning("[cita.me/LOCK-RAW] Lock ya existe: %s", lock_key)
+        return bool(result)
+    except Exception as e:
+        logger.error("[cita.me/LOCK-RAW] Error: %s", e)
+        return False
+
+
+# ── Semaforo distribuido ──
+
+async def acquire_semaphore(resource: str, limit: int = 10, timeout: int = 30) -> bool:
+    """Semaforo distribuido con INCR. Limita concurrencia por recurso."""
+    if not redis_client:
+        return False
+    key = f"sem:citame:{resource}"
+    try:
+        actual = await redis_client.incr(key)
+        if actual == 1:
+            await redis_client.expire(key, timeout)
+        if actual > limit:
+            await redis_client.decr(key)
+            return False
+        logger.info("[cita.me/SEMAFORO] Adquirido: %s (%d/%d)", key, actual, limit)
+        return True
+    except Exception as e:
+        logger.error("[cita.me/SEMAFORO] Error: %s", e)
+        return False
+
+
+async def release_semaphore(resource: str) -> None:
+    """Liberar un slot del semaforo."""
+    if not redis_client:
+        return
+    key = f"sem:citame:{resource}"
+    try:
+        await redis_client.decr(key)
+        logger.info("[cita.me/SEMAFORO] Liberado: %s", key)
+    except Exception as e:
+        logger.error("[cita.me/SEMAFORO] Error liberando: %s", e)
+
+
+# ── Coordinacion: heartbeats ──
+
+async def check_service_health(service_name: str) -> bool:
+    """Registrar heartbeat de un servicio en Redis (TTL 10s)."""
+    if not redis_client:
+        return False
+    key = f"service:citame:{service_name}"
+    try:
+        await redis_client.set(key, "alive", ex=10)
+        logger.info("[cita.me/COORD] Heartbeat: %s", service_name)
+        return True
+    except Exception as e:
+        logger.error("[cita.me/COORD] Error heartbeat: %s", e)
+        return False
+
+
+async def is_service_alive(service_name: str) -> bool:
+    """Verificar si un servicio esta activo via heartbeat."""
+    if not redis_client:
+        return False
+    key = f"service:citame:{service_name}"
+    try:
+        val = await redis_client.exists(key)
+        return bool(val)
+    except Exception:
+        return False
+
+
+# ── Cache ──
+
 async def cache_get(key: str) -> dict | None:
-    """Obtener valor del cache."""
     if not redis_client:
         return None
     try:
@@ -102,7 +174,6 @@ async def cache_get(key: str) -> dict | None:
 
 
 async def cache_set(key: str, value: dict, ttl: int = CACHE_TTL):
-    """Guardar valor en cache."""
     if not redis_client:
         return
     try:
@@ -113,7 +184,6 @@ async def cache_set(key: str, value: dict, ttl: int = CACHE_TTL):
 
 
 async def cache_delete(pattern: str):
-    """Eliminar claves por patrón."""
     if not redis_client:
         return
     try:

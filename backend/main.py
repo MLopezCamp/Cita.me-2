@@ -1,5 +1,9 @@
 """
-cita.me — Punto de entrada FastAPI
+cita.me — Punto de entrada FastAPI.
+
+Ciclo de vida:
+- Startup: init DB, Redis, heartbeat de coordinacion, consumers RabbitMQ
+- Shutdown: cancelar tareas, cerrar conexiones
 """
 import asyncio
 import logging
@@ -8,9 +12,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import init_db
-from redis_client import init_redis, close_redis
+from redis_client import init_redis, close_redis, check_service_health
 from messaging.producer import close_producer
-from messaging.consumer import start_consumer
+from messaging.consumer import start_all_consumers
 
 from routers import pacientes, doctores, horarios, citas, auth, portal, doctor_portal
 
@@ -22,25 +26,64 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 consumer_task: asyncio.Task | None = None
+heartbeat_task: asyncio.Task | None = None
+
+
+async def _heartbeat_loop():
+    """
+    Registrar heartbeat de servicios en Redis cada 5 segundos.
+    Permite saber que servicios estan activos (coordinacion).
+    Los heartbeats tienen TTL de 10s: si un servicio cae, desaparece automaticamente.
+    """
+    while True:
+        try:
+            await check_service_health("backend-api")
+            await check_service_health("consumer-rabbitmq")
+        except Exception:
+            pass
+        await asyncio.sleep(5)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global consumer_task
+    """Ciclo de vida de la aplicacion."""
+    global consumer_task, heartbeat_task
+
     logger.info("=== cita.me — INICIANDO ===")
+
+    # Base de datos
     await init_db()
+
+    # Redis
     await init_redis()
-    consumer_task = asyncio.create_task(start_consumer())
-    logger.info("[cita.me] Consumer RabbitMQ en background")
+
+    # Heartbeat de coordinacion: registra servicios activos en Redis
+    heartbeat_task = asyncio.create_task(_heartbeat_loop())
+
+    # Consumers RabbitMQ: tres servicios desacoplados en background
+    consumer_task = asyncio.create_task(start_all_consumers())
+    logger.info("[cita.me] Servicios desacoplados + heartbeat iniciados")
+
     logger.info("=== cita.me — LISTO ===")
+
     yield
+
     logger.info("=== cita.me — APAGANDO ===")
+
+    if heartbeat_task:
+        heartbeat_task.cancel()
+        try:
+            await heartbeat_task
+        except asyncio.CancelledError:
+            pass
+
     if consumer_task:
         consumer_task.cancel()
         try:
             await consumer_task
         except asyncio.CancelledError:
             pass
+
     await close_producer()
     await close_redis()
     logger.info("=== cita.me — CONEXIONES CERRADAS ===")

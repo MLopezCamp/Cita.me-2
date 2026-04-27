@@ -1,6 +1,6 @@
 """
-Productor RabbitMQ — publica eventos a colas de forma async.
-cita.me: la creación de citas se desacopla de notificaciones y estadísticas.
+cita.me — Productor RabbitMQ.
+Publica eventos a exchange topic de forma async (fire-and-forget).
 """
 import json
 import logging
@@ -56,7 +56,7 @@ async def publish_event(routing_key: str, event_data: dict):
 
 
 async def close_producer():
-    """Cerrar conexión del productor."""
+    """Cerrar conexion del productor."""
     global _connection, _channel, _exchange
     if _connection and not _connection.is_closed:
         await _connection.close()
