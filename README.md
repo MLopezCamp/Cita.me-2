@@ -2,9 +2,9 @@
 
 # Cita.me
 
-### Sistema Distribuido de Reserva de Citas Medicas
+### Sistema Distribuido de Reserva de Citas Médicas
 
-*Proyecto academico · Sistemas Distribuidos y Programacion Concurrente*
+*Proyecto académico · Sistemas Distribuidos y Programación Concurrente*
 
 ---
 
@@ -19,51 +19,65 @@
 
 ---
 
-## Tabla de Contenidos
+## Tabla de contenidos
 
-- [Descripcion](#descripcion)
-- [Stack Tecnologico](#stack-tecnologico)
+- [Demo](#demo)
+- [Descripción](#descripción)
+- [Stack tecnológico](#stack-tecnológico)
 - [Arquitectura](#arquitectura)
-- [Estructura del Proyecto](#estructura-del-proyecto)
+- [Estructura del proyecto](#estructura-del-proyecto)
 - [Funcionalidades](#funcionalidades)
 - [Endpoints de la API](#endpoints-de-la-api)
-- [Componentes Clave](#componentes-clave)
-- [Instalacion Rapida](#instalacion-rapida)
-- [Servicios y Puertos](#servicios-y-puertos)
+- [Instalación rápida (Docker)](#instalación-rápida-docker)
+- [Servicios y puertos (local)](#servicios-y-puertos-local)
+- [GitHub Pages (frontend estático)](#github-pages-frontend-estático)
+- [Licencia](#licencia)
 
 ---
 
-## Descripcion
+## Demo
 
-**Cita.me** es una plataforma web para el agendamiento de citas medicas, construida como sistema distribuido con arquitectura orientada a servicios. Permite gestionar pacientes, doctores, horarios y reservas con roles diferenciados.
+- **Frontend (local)**: `http://localhost:3000`
+- **Backend (local)**: `http://localhost:8000`
+- **Swagger (local)**: `http://localhost:8000/docs`
+- **Redis Commander (local)**: `http://localhost:8081`
+- **DB Viewer (local)**: `http://localhost:8080`
+
+> Tip: si publicas el frontend en GitHub Pages, agrega aquí el enlace a la demo.
+
+---
+
+## Descripción
+
+**Cita.me** es una plataforma web para el agendamiento de citas médicas, construida como **sistema distribuido** con arquitectura orientada a servicios. Permite gestionar **pacientes**, **doctores**, **horarios** y **reservas**, con roles diferenciados.
 
 El proyecto aplica en conjunto los siguientes conceptos:
 
 | Concepto | Implementacion |
 |---|---|
-| Sistemas Distribuidos | Multiples servicios orquestados con Docker Compose |
-| Programacion Concurrente | Locking distribuido con Redis para reservas simultaneas |
-| APIs REST | Backend con FastAPI y documentacion Swagger automatica |
-| Cache Distribuido | Redis para respuestas frecuentes y disponibilidad medica |
-| Mensajeria Asincrona | RabbitMQ para eventos desacoplados entre componentes |
+| Sistemas distribuidos | Múltiples servicios orquestados con Docker Compose |
+| Programación concurrente | Locking distribuido con Redis para reservas simultáneas |
+| APIs REST | Backend con FastAPI y documentación Swagger automática |
+| Caché distribuido | Redis para respuestas frecuentes y disponibilidad médica |
+| Mensajería asíncrona | RabbitMQ para eventos desacoplados |
 | Contenedores | Cada servicio corre en su propio contenedor Docker |
 
 ---
 
-## Stack Tecnologico
+## Stack tecnológico
 
 <div align="center">
 
 | Capa | Tecnologia | Rol |
 |---|---|---|
-| **Backend** | Python · FastAPI | API REST + logica de negocio |
+| **Backend** | Python · FastAPI | API REST + lógica de negocio |
 | **ORM** | SQLAlchemy (async) | Acceso a base de datos |
 | **Frontend** | Next.js 14 · React | Interfaz de usuario |
-| **Estilos** | Tailwind CSS | Diseno responsivo |
+| **Estilos** | Tailwind CSS | Diseño responsivo |
 | **Cache / Lock** | Redis 7 | Cache + locking distribuido |
-| **Mensajeria** | RabbitMQ 3 | Cola de eventos asincronos |
+| **Mensajería** | RabbitMQ 3 | Cola de eventos asíncronos |
 | **Base de Datos** | SQLite (aiosqlite) | Persistencia de datos |
-| **Contenedores** | Docker · Docker Compose | Orquestacion de servicios |
+| **Contenedores** | Docker · Docker Compose | Orquestación de servicios |
 
 </div>
 
@@ -85,7 +99,7 @@ graph TD
         API --> SVC
     end
 
-    subgraph Mensajeria["Mensajeria  —  RabbitMQ"]
+    subgraph Mensajeria["Mensajería  —  RabbitMQ"]
         MQ[(Cola de Eventos)]
     end
 
@@ -111,3 +125,87 @@ graph TD
     DBV -.->|lectura| BD
     RC -.->|lectura| RD
     SW -.->|docs| API
+```
+
+---
+
+## Estructura del proyecto
+
+```text
+Cita.me-2/
+├── backend/
+├── frontend/
+├── db_viewer/
+├── docker-compose.yml
+└── README.md
+```
+
+---
+
+## Funcionalidades
+
+- **Pacientes**: registro, consulta por ID/documento, historial de citas
+- **Doctores**: registro, especialidades, agenda y portal médico
+- **Horarios**: configuración de disponibilidad y consulta por doctor
+- **Citas médicas**: crear/consultar/cancelar, confirmar/completar, listados por paciente/doctor
+- **Portales**: paciente / doctor / administrador, inicio de sesión por rol
+
+---
+
+## Endpoints de la API
+
+> Para el detalle completo y ejemplos, usa Swagger: `http://localhost:8000/docs`.
+
+### Generales
+
+| Método | Endpoint |
+|---|---|
+| GET | `/` |
+| GET | `/health` |
+
+### Auth
+
+| Método | Endpoint |
+|---|---|
+| POST | `/auth/login` |
+| GET | `/auth/doctores-lista` |
+
+### Recursos principales
+
+- **Pacientes**: `/pacientes/*`
+- **Doctores**: `/doctores/*`
+- **Horarios**: `/horarios/*`
+- **Citas**: `/citas/*`
+- **Portal paciente**: `/portal/*`
+- **Portal doctor**: `/doctor-portal/*`
+
+---
+
+## Instalación rápida (Docker)
+
+Requisitos: **Docker** + **Docker Compose**
+
+```bash
+git clone https://github.com/MLopezCamp/Cita.me-2.git
+cd Cita.me-2
+docker-compose up --build
+```
+
+---
+
+## Servicios y puertos (local)
+
+| Servicio | URL |
+|---|---|
+| Frontend | `http://localhost:3000` |
+| Backend | `http://localhost:8000` |
+| Swagger | `http://localhost:8000/docs` |
+| DB Viewer | `http://localhost:8080` |
+| Redis Commander | `http://localhost:8081` |
+| RabbitMQ Management | `http://localhost:15672` |
+
+---
+
+## Licencia
+
+Proyecto académico y educativo.
