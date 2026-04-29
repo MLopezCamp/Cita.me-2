@@ -36,7 +36,7 @@ services:
       - "8000:8000"
     environment:
       REDIS_URL: redis://redis:6379/0
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5679/
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       DATABASE_URL: sqlite+aiosqlite:////data/citame.db
     depends_on:
       redis:
@@ -75,7 +75,7 @@ services:
     ports:
       - "8081:8081"
     environment:
-      - REDIS_HOSTS=redis:6379
+      - REDIS_HOSTS=local:redis:6379
     depends_on:
       - redis
 

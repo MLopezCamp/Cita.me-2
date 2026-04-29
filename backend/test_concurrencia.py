@@ -17,7 +17,7 @@ from database import init_db, AsyncSessionLocal
 from models import Doctor, Horario, Paciente, Cita
 from schemas import CitaCreate
 from services.cita_service import crear_cita
-from redis_client import DistributedLock
+from redis_client import DistributedLock, init_redis, close_redis
 
 
 NUM_SOLICITUDES = 10
@@ -270,11 +270,15 @@ async def main():
     print("  Locking Distribuido con Redis")
     print("=" * 50)
 
+    await init_redis()
     await setup_datos_prueba()
 
-    await probar_lock_directo()
-    await probar_reserva_concurrente()
-    await probar_lock_sin_redis()
+    try:
+        await probar_lock_directo()
+        await probar_reserva_concurrente()
+        await probar_lock_sin_redis()
+    finally:
+        await close_redis()
 
     print("\n" + "=" * 50)
     print("  PRUEBAS FINALIZADAS")
