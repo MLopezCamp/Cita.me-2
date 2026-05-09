@@ -6,6 +6,7 @@ import json
 import logging
 import aio_pika
 from config import RABBITMQ_URL, EXCHANGE_CITAS
+from request_context import get_request_id
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,10 @@ async def _get_channel():
 
 
 async def publish_event(routing_key: str, event_data: dict):
-    """Publicar un evento a RabbitMQ."""
+    """Publicar un evento a RabbitMQ incluyendo el request_id de trazabilidad."""
+    rid = get_request_id()
+    event_data["request_id"] = rid  # viaja dentro del mensaje para que el worker lo lea
+
     try:
         channel = await _get_channel()
 
@@ -46,13 +50,9 @@ async def publish_event(routing_key: str, event_data: dict):
 
         await _exchange.publish(message, routing_key=routing_key)
 
-        logger.info(
-            "[cita.me/RABBITMQ] Publicado: %s | %s",
-            routing_key,
-            json.dumps(event_data, default=str),
-        )
+        logger.info("[PRODUCER] [%s] → RabbitMQ: %s", rid, routing_key)
     except Exception as e:
-        logger.error("[cita.me/RABBITMQ] Error publicando %s: %s", routing_key, e)
+        logger.error("[PRODUCER] [%s] Error publicando %s: %s", rid, routing_key, e)
 
 
 async def close_producer():

@@ -15,6 +15,7 @@ import logging
 import aio_pika
 from config import RABBITMQ_URL, EXCHANGE_CITAS
 from redis_client import cache_delete
+from request_context import set_request_id
 
 logger = logging.getLogger(__name__)
 
@@ -85,15 +86,21 @@ async def _route_message(service_name: str, message: aio_pika.IncomingMessage):
             body = json.loads(message.body.decode("utf-8"))
             rk = message.routing_key
 
+            # Recupera el request_id que viajo desde la API dentro del mensaje
+            rid = body.get("request_id", "-")
+            set_request_id(rid)
+
+            logger.info("[WORKER:%s] [%s] Procesando: %s", service_name, rid, rk)
+
             if service_name == "notificaciones":
-                await _handle_notificacion(rk, body)
+                await _handle_notificacion(rk, body, rid)
             elif service_name == "disponibilidad":
-                await _handle_disponibilidad(rk, body)
+                await _handle_disponibilidad(rk, body, rid)
             elif service_name == "estadisticas":
-                await _handle_estadisticas(rk, body)
+                await _handle_estadisticas(rk, body, rid)
 
         except Exception as e:
-            logger.error("[cita.me/%s] Error procesando: %s", service_name, e)
+            logger.error("[WORKER:%s] Error procesando: %s", service_name, e)
 
 
 # ──────────────────────────────────────────────────
@@ -102,28 +109,26 @@ async def _route_message(service_name: str, message: aio_pika.IncomingMessage):
 # Simula envio de email/SMS sin bloquear la reserva
 # ──────────────────────────────────────────────────
 
-async def _handle_notificacion(routing_key: str, data: dict):
+async def _handle_notificacion(routing_key: str, data: dict, rid: str):
     """Servicio de notificaciones al paciente."""
     await asyncio.sleep(0.3)  # Simula latencia de servicio externo
 
     if routing_key == "cita.creada":
         logger.info(
-            "[NOTIFICACIONES] Email enviado a paciente #%s: "
-            "Su cita #%s fue creada para el %s a las %s",
-            data.get("paciente_id"), data.get("cita_id"),
+            "[WORKER:notificaciones] [%s] Email enviado a paciente #%s: "
+            "cita #%s para el %s a las %s",
+            rid, data.get("paciente_id"), data.get("cita_id"),
             data.get("fecha"), data.get("hora"),
         )
     elif routing_key == "cita.confirmada":
         logger.info(
-            "[NOTIFICACIONES] Email a paciente #%s: "
-            "Cita #%s ha sido confirmada",
-            data.get("paciente_id"), data.get("cita_id"),
+            "[WORKER:notificaciones] [%s] Email a paciente #%s: cita #%s confirmada",
+            rid, data.get("paciente_id"), data.get("cita_id"),
         )
     elif routing_key == "cita.cancelada":
         logger.info(
-            "[NOTIFICACIONES] Email a paciente #%s: "
-            "Cita #%s ha sido cancelada",
-            data.get("paciente_id"), data.get("cita_id"),
+            "[WORKER:notificaciones] [%s] Email a paciente #%s: cita #%s cancelada",
+            rid, data.get("paciente_id"), data.get("cita_id"),
         )
 
 
@@ -133,7 +138,7 @@ async def _handle_notificacion(routing_key: str, data: dict):
 # Actualiza slots sin bloquear la reserva original
 # ──────────────────────────────────────────────────
 
-async def _handle_disponibilidad(routing_key: str, data: dict):
+async def _handle_disponibilidad(routing_key: str, data: dict, rid: str):
     """Servicio de disponibilidad: actualiza cache de slots en background."""
     await asyncio.sleep(0.1)
 
@@ -146,13 +151,13 @@ async def _handle_disponibilidad(routing_key: str, data: dict):
 
     if routing_key == "cita.creada":
         logger.info(
-            "[DISPONIBILIDAD] Slot ocupado: doctor #%s, fecha %s",
-            doctor_id, fecha,
+            "[WORKER:disponibilidad] [%s] Slot ocupado: doctor #%s, fecha %s",
+            rid, doctor_id, fecha,
         )
     elif routing_key == "cita.cancelada":
         logger.info(
-            "[DISPONIBILIDAD] Slot liberado: doctor #%s, fecha %s",
-            doctor_id, fecha,
+            "[WORKER:disponibilidad] [%s] Slot liberado: doctor #%s, fecha %s",
+            rid, doctor_id, fecha,
         )
 
 
@@ -170,16 +175,22 @@ _contadores = {
 }
 
 
-async def _handle_estadisticas(routing_key: str, data: dict):
+async def _handle_estadisticas(routing_key: str, data: dict, rid: str):
     """Servicio de estadisticas: registra metricas por evento."""
     await asyncio.sleep(0.05)
 
     if routing_key == "cita.creada":
         _contadores["citas_creadas"] += 1
-        logger.info("[ESTADISTICAS] Total creadas: %d", _contadores["citas_creadas"])
+        logger.info(
+            "[WORKER:estadisticas] [%s] Total creadas: %d",
+            rid, _contadores["citas_creadas"],
+        )
     elif routing_key == "cita.estado_actualizado":
         nuevo = data.get("nuevo_estado", "")
         clave = f"citas_{nuevo}"
         if clave in _contadores:
             _contadores[clave] += 1
-        logger.info("[ESTADISTICAS] Estado -> %s: %s", nuevo, dict(_contadores))
+        logger.info(
+            "[WORKER:estadisticas] [%s] Estado → %s | contadores: %s",
+            rid, nuevo, dict(_contadores),
+        )

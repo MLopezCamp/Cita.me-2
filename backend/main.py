@@ -8,22 +8,36 @@ Ciclo de vida:
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from database import init_db
 from redis_client import init_redis, close_redis, check_service_health
 from messaging.producer import close_producer
 from messaging.consumer import start_all_consumers
+from request_context import new_request_id, get_request_id
 
 from routers import pacientes, doctores, horarios, citas, auth, portal, doctor_portal
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s | %(name)s | %(levelname)s | %(message)s",
+    format="%(asctime)s | %(levelname)s | %(message)s",
     datefmt="%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+
+class RequestIDMiddleware(BaseHTTPMiddleware):
+    """Genera un request_id unico por peticion HTTP y lo registra."""
+
+    async def dispatch(self, request: Request, call_next):
+        rid = new_request_id()
+        logger.info("[API] [%s] %s %s", rid, request.method, request.url.path)
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = rid
+        logger.info("[API] [%s] Respuesta %s", rid, response.status_code)
+        return response
 
 consumer_task: asyncio.Task | None = None
 heartbeat_task: asyncio.Task | None = None
@@ -103,6 +117,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestIDMiddleware)
 
 app.include_router(auth.router)
 app.include_router(pacientes.router)
