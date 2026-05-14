@@ -1,0 +1,31 @@
+{
+  "dashboard": {
+    "title": "cita.me - Observabilidad",
+    "panels": [
+      {
+        "title": "Logs - Backend",
+        "type": "logs",
+        "targets": [{"expr": "{container=\"citame-backend\"}"}],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "title": "Logs - Redis",
+        "type": "logs",
+        "targets": [{"expr": "{container=\"citame-redis\"}"}],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "title": "Logs - RabbitMQ",
+        "type": "logs",
+        "targets": [{"expr": "{container=\"citame-rabbitmq\"}"}],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "title": "Errores - Todos los servicios",
+        "type": "logs",
+        "targets": [{"expr": "{container=~\".\"} |= \"ERROR\""}],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      }
+    ]
+  }
+}
