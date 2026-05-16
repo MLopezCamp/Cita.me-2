@@ -1,30 +1,63 @@
 {
   "dashboard": {
-    "title": "cita.me - Observabilidad",
+    "title": "cita.me - Trazabilidad por Request ID",
+    "tags": ["cita.me", "observability"],
+    "timezone": "browser",
+    "schemaVersion": 36,
+    "variables": [
+      {
+        "name": "request_id",
+        "type": "textbox",
+        "label": "Request ID",
+        "query": "",
+        "current": {"value": "", "text": ""}
+      }
+    ],
     "panels": [
       {
-        "title": "Logs - Backend",
+        "title": "🔵 API: Cita Creada",
         "type": "logs",
-        "targets": [{"expr": "{container=\"citame-backend\"}"}],
+        "datasource": {"type": "loki", "uid": "loki"},
+        "targets": [{
+          "expr": "{container=\"citame-backend\"} | json | request_id=\"$request_id\" |~ \"Cita.*creada\""
+        }],
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
       },
       {
-        "title": "Logs - Redis",
+        "title": "🟠 RabbitMQ: Mensaje Enviado",
         "type": "logs",
-        "targets": [{"expr": "{container=\"citame-redis\"}"}],
+        "datasource": {"type": "loki", "uid": "loki"},
+        "targets": [{
+          "expr": "{container=\"citame-backend\"} | json | request_id=\"$request_id\" |~ \"Mensaje enviado\""
+        }],
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
       },
       {
-        "title": "Logs - RabbitMQ",
+        "title": "🟢 Worker: Evento Procesado",
         "type": "logs",
-        "targets": [{"expr": "{container=\"citame-rabbitmq\"}"}],
+        "datasource": {"type": "loki", "uid": "loki"},
+        "targets": [{
+          "expr": "{container=\"citame-worker\"} | json | request_id=\"$request_id\" |~ \"Evento procesado\""
+        }],
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
       },
       {
-        "title": "Errores - Todos los servicios",
+        "title": "🔴 Redis: Lock Adquirido",
         "type": "logs",
-        "targets": [{"expr": "{container=~\".\"} |= \"ERROR\""}],
+        "datasource": {"type": "loki", "uid": "loki"},
+        "targets": [{
+          "expr": "{container=\"citame-backend\"} | json | request_id=\"$request_id\" |~ \"Lock.*adquirido\""
+        }],
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "title": "📋 Flujo Completo",
+        "type": "logs",
+        "datasource": {"type": "loki", "uid": "loki"},
+        "targets": [{
+          "expr": "{container=~\"(citame-backend|citame-worker)\"} | json | request_id=\"$request_id\""
+        }],
+        "gridPos": {"h": 10, "w": 24, "x": 0, "y": 16}
       }
     ]
   }

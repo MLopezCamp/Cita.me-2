@@ -10,11 +10,18 @@ class JSONFormatter(logging.Formatter):
     """Formatter que emite un JSON por línea para Loki."""
 
     def format(self, record):
+        # ✅ Extraer request_id del ContextVar si no está en el record
+        from middleware.request_id import get_request_id
+        
+        request_id = getattr(record, "request_id", None)
+        if request_id == "-" or request_id is None:
+            request_id = get_request_id()
+        
         log_entry = {
             "timestamp": self.formatTime(record, self.datefmt),
             "level": record.levelname,
-            "service": getattr(record, "service", "app"),
-            "request_id": getattr(record, "request_id", "-"),
+            "service": getattr(record, "service", record.name),
+            "request_id": request_id,
             "message": record.getMessage(),
         }
         return json.dumps(log_entry, ensure_ascii=False)

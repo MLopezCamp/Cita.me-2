@@ -10,38 +10,23 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import init_db
 from redis_client import init_redis, close_redis
 from messaging.producer import close_producer
-from messaging.consumer import start_consumer
 from logging_config import setup_logging
+from middleware.request_id import RequestIdMiddleware  # ✅ NUEVO
 
 from routers import pacientes, doctores, horarios, citas, auth, portal, doctor_portal
 
-# Configurar logs ANTES de crear la app
 setup_logging()
 logger = logging.getLogger("cita.me")
-
-consumer_task: asyncio.Task | None = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global consumer_task
     logger.info("[INIT] Iniciando cita.me")
-
     await init_db()
     await init_redis()
-
-    consumer_task = asyncio.create_task(start_consumer())
-    logger.info("[INIT] Consumer RabbitMQ en background")
     logger.info("[INIT] cita.me listo")
     yield
-
     logger.info("[SHUTDOWN] Apagando cita.me")
-    if consumer_task:
-        consumer_task.cancel()
-        try:
-            await consumer_task
-        except asyncio.CancelledError:
-            pass
     await close_producer()
     await close_redis()
     logger.info("[SHUTDOWN] Conexiones cerradas")
@@ -53,6 +38,9 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# ✅ AGREGAR MIDDLEWARE DE REQUEST_ID (PRIMERO, antes de CORS)
+app.add_middleware(RequestIdMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

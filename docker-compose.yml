@@ -71,6 +71,32 @@ services:
     networks:
       - citame-net
 
+  worker:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    container_name: citame-worker
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      DATABASE_URL: sqlite+aiosqlite:////data/citame.db
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - db_data:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      logging: "promtail"
+    networks:
+      - citame-net
+
   db_viewer:
     build:
       context: ./db_viewer
@@ -124,7 +150,6 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_DB: 0
-      # Deshabilitar autenticación si no tienes password
       REDIS_PASSWORD: ""
     command: sh -c "sleep 5 && node ./bin/redis-commander --redis-host redis --redis-port 6379 --redis-db 0"
     depends_on:
@@ -142,7 +167,7 @@ services:
     volumes:
       - loki_data:/loki
       - ./loki-config.yaml:/etc/loki/local-config.yaml:ro
-    command: -config.file=/etc/loki/local-config.yaml   
+    command: -config.file=/etc/loki/local-config.yaml
     logging:
       driver: json-file
       options:
@@ -194,12 +219,27 @@ services:
     networks:
       - citame-net
 
+  # ✅ PORTAINER — Gestión visual de contenedores
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: citame-portainer
+    ports:
+      - "9000:9000"
+      - "8001:8000"  # Edge agent
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - portainer_data:/data
+    restart: unless-stopped
+    networks:
+      - citame-net
+
 volumes:
   redis_data:
   rabbitmq_data:
   db_data:
   loki_data:
   grafana_data:
+  portainer_data:  # ✅ Nuevo volumen
 
 networks:
   citame-net:
