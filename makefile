@@ -1,23 +1,38 @@
 .PHONY: help up down build logs ps clean restart status test \
-        grafana redis-cmd rabbitmq-ui portainer-ui
+        grafana redis-cmd rabbitmq-ui portainer-ui \
+        prod-up prod-down prod-pull prod-restart prod-logs prod-ps prod-status
+
+PROD = docker compose -f docker-compose.prod.yml
 
 help:
 	@echo "cita.me — Comandos disponibles:"
 	@echo ""
-	@echo "  make up          — Levantar TODO el stack"
-	@echo "  make down        — Detener y eliminar contenedores"
-	@echo "  make build       — Reconstruir imagenes y levantar"
-	@echo "  make restart     — Reiniciar todo el stack"
-	@echo "  make logs        — Ver logs de todos los servicios"
-	@echo "  make ps          — Estado de contenedores"
-	@echo "  make status      — Estado + URLs de acceso"
-	@echo "  make test        — Test de salud de servicios"
-	@echo "  make clean       — Limpieza nuclear (contenedores + volumenes)"
-	@echo "  make clean-all   — Limpieza total + imagenes huerfanas"
-	@echo "  make grafana     — Abrir Grafana en navegador"
-	@echo "  make redis-cmd   — Abrir Redis Commander"
-	@echo "  make rabbitmq-ui — Abrir RabbitMQ Management"
-	@echo "  make portainer-ui— Abrir Portainer"
+	@echo "  Desarrollo (construye desde codigo local):"
+	@echo "    make up          — Levantar TODO el stack"
+	@echo "    make down        — Detener y eliminar contenedores"
+	@echo "    make build       — Reconstruir imagenes y levantar"
+	@echo "    make restart     — Reiniciar todo el stack"
+	@echo "    make logs        — Ver logs de todos los servicios"
+	@echo "    make ps          — Estado de contenedores"
+	@echo "    make status      — Estado + URLs de acceso"
+	@echo "    make test        — Test de salud de servicios"
+	@echo "    make clean       — Limpieza nuclear (contenedores + volumenes)"
+	@echo "    make clean-all   — Limpieza total + imagenes huerfanas"
+	@echo ""
+	@echo "  Produccion (imagenes pre-construidas desde Docker Hub):"
+	@echo "    make prod-up      — Descargar imagenes y levantar el stack"
+	@echo "    make prod-down    — Detener el stack de produccion"
+	@echo "    make prod-pull    — Solo descargar las imagenes mas recientes"
+	@echo "    make prod-restart — Actualizar imagenes y reiniciar"
+	@echo "    make prod-logs    — Ver logs del stack de produccion"
+	@echo "    make prod-ps      — Estado de contenedores de produccion"
+	@echo "    make prod-status  — Estado + URLs de acceso (produccion)"
+	@echo ""
+	@echo "  Navegador:"
+	@echo "    make grafana     — Abrir Grafana"
+	@echo "    make redis-cmd   — Abrir Redis Commander"
+	@echo "    make rabbitmq-ui — Abrir RabbitMQ Management"
+	@echo "    make portainer-ui— Abrir Portainer"
 
 up:
 	docker compose up -d --build
@@ -99,3 +114,41 @@ rabbitmq-ui:
 
 portainer-ui:
 	@start http://localhost:9000 || open http://localhost:9000 || xdg-open http://localhost:9000
+
+# ── Produccion (imagenes desde Docker Hub) ──────────────────────────────────
+
+prod-pull:
+	$(PROD) pull
+
+prod-up:
+	$(PROD) pull
+	$(PROD) up -d
+	$(MAKE) prod-status
+
+prod-down:
+	$(PROD) down
+
+prod-restart:
+	$(PROD) pull
+	$(PROD) up -d
+
+prod-logs:
+	$(PROD) logs -f
+
+prod-ps:
+	$(PROD) ps
+
+prod-status:
+	@echo ""
+	@echo "cita.me — SERVICIOS DE PRODUCCION ACTIVOS"
+	@echo ""
+	@echo "  Frontend:         http://localhost:3000"
+	@echo "  API Backend:      http://localhost:8000"
+	@echo "  Swagger:          http://localhost:8000/docs"
+	@echo "  DB Viewer:        http://localhost:8080"
+	@echo "  Redis Commander:  http://localhost:8081"
+	@echo "  RabbitMQ UI:      http://localhost:15672 (guest/guest)"
+	@echo "  Grafana:          http://localhost:3200"
+	@echo "  Portainer:        http://localhost:9000"
+	@echo ""
+	@$(PROD) ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"

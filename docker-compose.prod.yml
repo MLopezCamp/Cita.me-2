@@ -1,8 +1,11 @@
 services:
   redis:
     image: redis:7-alpine
+    container_name: citame-redis
     restart: unless-stopped
-    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru --protected-mode no
     volumes:
       - redis_data:/data
     healthcheck:
@@ -10,10 +13,17 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+      start_period: 10s
+    networks:
+      - citame-net
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
+    container_name: citame-rabbitmq
     restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
@@ -24,9 +34,13 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+      start_period: 10s
+    networks:
+      - citame-net
 
   backend:
-    image: ${DOCKERHUB_USERNAME}/citame-backend:${VERSION:-latest}
+    image: ${DOCKERHUB_USERNAME:-mlopezcamp}/citame-backend:${VERSION:-latest}
+    container_name: citame-backend
     restart: unless-stopped
     ports:
       - "8000:8000"
@@ -41,9 +55,30 @@ services:
         condition: service_healthy
     volumes:
       - db_data:/data
+    networks:
+      - citame-net
+
+  worker:
+    image: ${DOCKERHUB_USERNAME:-mlopezcamp}/citame-worker:${VERSION:-latest}
+    container_name: citame-worker
+    restart: unless-stopped
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      DATABASE_URL: sqlite+aiosqlite:////data/citame.db
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - db_data:/data
+    networks:
+      - citame-net
 
   db_viewer:
-    image: ${DOCKERHUB_USERNAME}/citame-db-viewer:${VERSION:-latest}
+    image: ${DOCKERHUB_USERNAME:-mlopezcamp}/citame-db-viewer:${VERSION:-latest}
+    container_name: citame-dbviewer
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -53,9 +88,12 @@ services:
       - db_data:/data
     depends_on:
       - backend
+    networks:
+      - citame-net
 
   frontend:
-    image: ${DOCKERHUB_USERNAME}/citame-frontend:${VERSION:-latest}
+    image: ${DOCKERHUB_USERNAME:-mlopezcamp}/citame-frontend:${VERSION:-latest}
+    container_name: citame-frontend
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -63,36 +101,96 @@ services:
       NEXT_PUBLIC_API_URL: http://localhost:8000
     depends_on:
       - backend
+    networks:
+      - citame-net
 
   redis-commander:
     image: rediscommander/redis-commander:latest
-    restart: unless-stopped
+    container_name: citame-rediscommander
+    restart: on-failure:3
     ports:
       - "8081:8081"
     environment:
-      - REDIS_HOSTS=local:redis:6379
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      REDIS_PASSWORD: ""
+    command: sh -c "sleep 5 && node ./bin/redis-commander --redis-host redis --redis-port 6379 --redis-db 0"
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+    networks:
+      - citame-net
 
-  dozzle:
-    image: amir20/dozzle:latest
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: citame-loki
     restart: unless-stopped
     ports:
-      - "9999:8080"
+      - "3100:3100"
     volumes:
+      - loki_data:/loki
+      - ./loki-config.yaml:/etc/loki/local-config.yaml:ro
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - citame-net
+
+  alloy:
+    image: grafana/alloy:v1.1.0
+    container_name: citame-alloy
+    restart: unless-stopped
+    ports:
+      - "12345:12345"
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./alloy-config.alloy:/etc/alloy/config.alloy:ro
+    depends_on:
+      - loki
+    command: run /etc/alloy/config.alloy --server.http.listen-addr=0.0.0.0:12345
+    networks:
+      - citame-net
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: citame-grafana
+    restart: unless-stopped
+    ports:
+      - "3200:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_INSTALL_PLUGINS: grafana-lokiexplore-app
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+    depends_on:
+      - loki
+    networks:
+      - citame-net
 
   portainer:
     image: portainer/portainer-ce:latest
+    container_name: citame-portainer
     restart: unless-stopped
     ports:
       - "9000:9000"
+      - "8001:8000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - portainer_data:/data
+    networks:
+      - citame-net
 
 volumes:
   redis_data:
   rabbitmq_data:
   db_data:
+  loki_data:
+  grafana_data:
   portainer_data:
+
+networks:
+  citame-net:
+    driver: bridge

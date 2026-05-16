@@ -48,6 +48,18 @@ jobs:
             ${{ env.IMAGE_PREFIX }}-backend:${{ steps.tag.outputs.value }}
             ${{ env.IMAGE_PREFIX }}-backend:latest
 
+      - name: Build and push worker
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: worker/Dockerfile
+          push: true
+          cache-from: type=gha,scope=worker
+          cache-to: type=gha,mode=max,scope=worker
+          tags: |
+            ${{ env.IMAGE_PREFIX }}-worker:${{ steps.tag.outputs.value }}
+            ${{ env.IMAGE_PREFIX }}-worker:latest
+
       - name: Build and push db_viewer
         uses: docker/build-push-action@v6
         with:
@@ -75,6 +87,7 @@ jobs:
           echo "### Imagenes publicadas en Docker Hub" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- \`${{ env.IMAGE_PREFIX }}-backend:${{ steps.tag.outputs.value }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.IMAGE_PREFIX }}-worker:${{ steps.tag.outputs.value }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- \`${{ env.IMAGE_PREFIX }}-db-viewer:${{ steps.tag.outputs.value }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- \`${{ env.IMAGE_PREFIX }}-frontend:${{ steps.tag.outputs.value }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
