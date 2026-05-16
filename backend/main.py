@@ -39,7 +39,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# ✅ AGREGAR MIDDLEWARE DE REQUEST_ID (PRIMERO, antes de CORS)
+# AGREGAR MIDDLEWARE DE REQUEST_ID (PRIMERO, antes de CORS)
 app.add_middleware(RequestIdMiddleware)
 
 app.add_middleware(

@@ -9,7 +9,7 @@ from starlette.requests import Request
 request_id_var: ContextVar[str] = ContextVar("request_id", default="-")
 
 
-class RequestIdMiddleware(BaseHTTPMiddleware):  # ✅ Heredar de BaseHTTPMiddleware
+class RequestIdMiddleware(BaseHTTPMiddleware):  # Heredar de BaseHTTPMiddleware
     async def dispatch(self, request: Request, call_next):
         # Recibir de header o generar uno nuevo (8 chars para legibilidad)
         rid = request.headers.get("X-Request-ID", str(uuid.uuid4())[:8])
