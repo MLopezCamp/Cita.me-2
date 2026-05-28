@@ -1,9 +1,78 @@
-"""Esquemas Pydantic para validación de entrada/salida."""
+"""Esquemas Pydantic para validacion de entrada/salida."""
 from datetime import date, time, datetime
 from pydantic import BaseModel, EmailStr, Field
 
 
-# ── Pacientes ──
+# =============================================================================
+# AUTH / JWT
+# =============================================================================
+
+class LoginRequest(BaseModel):
+    rol: str  # "admin", "doctor", "paciente", "administrativo"
+    identifier: str  # email para doctor/administrativo, documento para paciente, "admin" para admin
+    contrasena: str
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    id: int
+    nombre: str
+    rol: str
+    especialidad: str | None = None
+    documento: str | None = None
+
+
+# =============================================================================
+# ADMINISTRATIVO
+# =============================================================================
+
+class AdministrativoCreate(BaseModel):
+    nombre: str = Field(..., min_length=2, max_length=100)
+    apellido: str = Field(..., min_length=2, max_length=100)
+    email: EmailStr
+    telefono: str = Field(..., min_length=7, max_length=30)
+    contrasena: str = Field(..., min_length=4)
+
+
+class AdministrativoResponse(BaseModel):
+    id: int
+    nombre: str
+    apellido: str
+    email: str
+    telefono: str
+    activo: bool
+    creado_en: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# =============================================================================
+# PARTE MEDICO
+# =============================================================================
+
+class ParteMedicoCreate(BaseModel):
+    cita_id: int
+    diagnostico: str = Field(..., min_length=5)
+    tratamiento: str | None = None
+    observaciones: str | None = None
+
+
+class ParteMedicoResponse(BaseModel):
+    id: int
+    cita_id: int
+    doctor_id: int
+    diagnostico: str
+    tratamiento: str | None
+    observaciones: str | None
+    creado_en: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# =============================================================================
+# PACIENTES
+# =============================================================================
 
 class PacienteCreate(BaseModel):
     nombre: str = Field(..., min_length=2, max_length=100)
@@ -12,6 +81,7 @@ class PacienteCreate(BaseModel):
     email: EmailStr
     telefono: str = Field(..., min_length=7, max_length=30)
     fecha_nacimiento: date
+    contrasena: str | None = Field(default="1234", min_length=4)
 
 
 class PacienteResponse(BaseModel):
@@ -27,7 +97,9 @@ class PacienteResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# ── Doctores ──
+# =============================================================================
+# DOCTORES
+# =============================================================================
 
 class DoctorCreate(BaseModel):
     nombre: str = Field(..., min_length=2, max_length=100)
@@ -35,6 +107,7 @@ class DoctorCreate(BaseModel):
     especialidad: str = Field(..., min_length=3, max_length=150)
     email: EmailStr
     telefono: str = Field(..., min_length=7, max_length=30)
+    contrasena: str | None = Field(default="1234", min_length=4)
 
 
 class DoctorResponse(BaseModel):
@@ -50,7 +123,9 @@ class DoctorResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# ── Horarios ──
+# =============================================================================
+# HORARIOS
+# =============================================================================
 
 class HorarioCreate(BaseModel):
     doctor_id: int
@@ -70,7 +145,9 @@ class HorarioResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# ── Citas ──
+# =============================================================================
+# CITAS
+# =============================================================================
 
 class CitaCreate(BaseModel):
     paciente_id: int

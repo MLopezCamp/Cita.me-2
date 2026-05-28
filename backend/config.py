@@ -18,3 +18,9 @@ QUEUE_CITAS = "citame.eventos"
 EXCHANGE_CITAS = "citame.exchange"
 
 CACHE_TTL = 300
+
+...
+SECRET_KEY: str = "IX861LyQDAByoUF3c8n2nPaIn6FwHk300sHEbczN9WA"
+ALGORITHM: str = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES: int = 1296000
+...
