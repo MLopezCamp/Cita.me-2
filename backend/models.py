@@ -1,5 +1,6 @@
 """Modelos ORM — definicion de tablas."""
 from datetime import date, time, datetime
+from typing import Optional
 from sqlalchemy import String, Integer, ForeignKey, Date, Time, Boolean, Text, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database import Base
@@ -116,7 +117,7 @@ class Cita(Base):
     paciente: Mapped["Paciente"] = relationship(back_populates="citas")
     doctor: Mapped["Doctor"] = relationship(back_populates="citas")
     # NUEVO: Relacion con parte medico (una cita puede tener cero o un parte medico)
-    parte_medico: Mapped["ParteMedico" | None] = relationship(
+    parte_medico: Mapped[Optional["ParteMedico"]] = relationship(
         back_populates="cita",
         uselist=False,
         cascade="all, delete-orphan"
