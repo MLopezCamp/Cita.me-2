@@ -138,3 +138,15 @@ async def seed_if_empty(session: AsyncSession):
         await seed_all(session)
     else:
         print("[SEED] La base de datos ya tiene datos, omitiendo seed")
+
+
+if __name__ == "__main__":
+    import asyncio
+    from database import AsyncSessionLocal, init_db
+
+    async def main():
+        await init_db()
+        async with AsyncSessionLocal() as session:
+            await seed_all(session)
+
+    asyncio.run(main())
