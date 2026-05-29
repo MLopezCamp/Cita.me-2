@@ -202,13 +202,18 @@ services:
     ports:
       - "3200:3000"
     environment:
-      GF_AUTH_ANONYMOUS_ENABLED: "true"
-      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      # Credenciales del admin — cambia la contraseña si lo deseas
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: citame2024
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
       GF_USERS_ALLOW_SIGN_UP: "false"
+      # Abrir el dashboard de trazabilidad como pantalla de inicio
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/citame.json
       GF_INSTALL_PLUGINS: grafana-lokiexplore-app
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+      # Provisioning declarativo: datasources + dashboard persisten aunque se borre el volumen
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       - loki
     logging:
