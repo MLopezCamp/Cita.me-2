@@ -3,16 +3,11 @@ cita.me — Utilidades de seguridad: hashing y JWT
 """
 from datetime import datetime, timedelta, timezone
 
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from pydantic import BaseModel
 
 from config_auth import ALGORITHM, SECRET_KEY, ACCESS_TOKEN_EXPIRE_MINUTES
-
-# =============================================================================
-# Contexto de hashing con bcrypt
-# =============================================================================
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 # =============================================================================
@@ -28,13 +23,11 @@ class TokenPayload(BaseModel):
 # Funciones de password
 # =============================================================================
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verifica una contraseña contra su hash bcrypt."""
-    return pwd_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
 
 
 def get_password_hash(password: str) -> str:
-    """Genera el hash bcrypt de una contraseña."""
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 # =============================================================================
