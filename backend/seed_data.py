@@ -140,13 +140,46 @@ async def seed_if_empty(session: AsyncSession):
         print("[SEED] La base de datos ya tiene datos, omitiendo seed")
 
 
+async def reset_passwords(session: AsyncSession):
+    """Fuerza el re-hash de las contrasenas de todos los usuarios semilla."""
+    hash_1234 = get_password_hash("1234")
+
+    for email in ["maria.gonzalez@medicita.com", "pedro.martinez@medicita.com", "ana.castro@medicita.com"]:
+        result = await session.execute(select(Doctor).where(Doctor.email == email))
+        d = result.scalar_one_or_none()
+        if d:
+            d.password_hash = hash_1234
+            print(f"[RESET] Doctor {email}")
+
+    for email in ["carlos@admin.com", "laura@admin.com"]:
+        result = await session.execute(select(Administrativo).where(Administrativo.email == email))
+        a = result.scalar_one_or_none()
+        if a:
+            a.password_hash = hash_1234
+            print(f"[RESET] Administrativo {email}")
+
+    for doc in ["1001234567", "1007654321", "1009876543"]:
+        result = await session.execute(select(Paciente).where(Paciente.documento == doc))
+        p = result.scalar_one_or_none()
+        if p:
+            p.password_hash = hash_1234
+            print(f"[RESET] Paciente {doc}")
+
+    await session.commit()
+    print("[RESET] Contrasenas actualizadas")
+
+
 if __name__ == "__main__":
     import asyncio
+    import sys
     from database import AsyncSessionLocal, init_db
 
     async def main():
         await init_db()
         async with AsyncSessionLocal() as session:
-            await seed_all(session)
+            if "--reset-passwords" in sys.argv:
+                await reset_passwords(session)
+            else:
+                await seed_all(session)
 
     asyncio.run(main())

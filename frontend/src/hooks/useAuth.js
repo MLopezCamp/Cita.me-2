@@ -57,7 +57,9 @@ export function useAuth(requiredRole = null) {
 
     setUser(parsed);
     setLoading(false);
-  }, [router, requiredRole]);
+  // requiredRoleKey serializa el array para evitar re-renders infinitos
+  // cuando se pasa ["admin", "administrativo"] (nueva referencia en cada render)
+  }, [router, Array.isArray(requiredRole) ? requiredRole.join(",") : (requiredRole ?? "")]);
 
   function logout() {
     const esPersonal = user?.rol !== "paciente";
