@@ -157,6 +157,14 @@ class CitaCreate(BaseModel):
     motivo: str = Field(..., min_length=5, max_length=300)
 
 
+class CitaCreatePortal(BaseModel):
+    """Schema para el portal del paciente — paciente_id lo inyecta el JWT."""
+    doctor_id: int
+    fecha: date
+    hora: time
+    motivo: str = Field(..., min_length=5, max_length=300)
+
+
 class CitaUpdateEstado(BaseModel):
     estado: str = Field(..., pattern="^(pendiente|confirmada|cancelada|completada)$")
     notas: str | None = None

@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../hooks/useAuth";
-import { doctores, citas, portal } from "../../../services/api";
+import { citas, portal } from "../../../services/api";
 
 export default function PortalNuevaCitaPage() {
   const router = useRouter();
@@ -25,7 +25,7 @@ export default function PortalNuevaCitaPage() {
     if (!user) return;
     async function init() {
       try {
-        const data = await doctores.listar();
+        const data = await portal.doctoresDisponibles();
         setDoctoresList(data);
       } catch (err) {
         setError(err.message);
@@ -126,7 +126,7 @@ export default function PortalNuevaCitaPage() {
               <option value="">Seleccionar doctor...</option>
               {doctoresList.map((d) => (
                 <option key={d.id} value={d.id}>
-                  Dr. {d.nombre} {d.apellido} — {d.especialidad}
+                  {d.nombre} — {d.especialidad}
                 </option>
               ))}
             </select>

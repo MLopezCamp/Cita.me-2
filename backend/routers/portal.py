@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_session
 from dependencies import require_role, get_current_user
 from models import Cita, Doctor
-from schemas import CitaCreate, CitaResponse, CitaUpdateEstado
+from schemas import CitaCreate, CitaCreatePortal, CitaResponse, CitaUpdateEstado
 from services import cita_service
 
 logger = logging.getLogger(__name__)
@@ -68,19 +68,23 @@ async def mis_citas(
 # =============================================================================
 @router.post("/pedir-cita", response_model=CitaResponse, status_code=201)
 async def pedir_cita(
-    data: CitaCreate,
+    data: CitaCreatePortal,
     session: AsyncSession = Depends(get_session),
     user: dict = Depends(require_role("paciente")),
 ):
     """
     El paciente autenticado pide una cita.
-    El paciente_id se sobreescribe con el ID del token para seguridad.
+    El paciente_id viene del token JWT, no del body.
     """
-    # Sobrescribir paciente_id con el del token (evita suplantacion)
-    data.paciente_id = user["id"]
-
+    cita_data = CitaCreate(
+        paciente_id=user["id"],
+        doctor_id=data.doctor_id,
+        fecha=data.fecha,
+        hora=data.hora,
+        motivo=data.motivo,
+    )
     try:
-        cita = await cita_service.crear_cita(session, data)
+        cita = await cita_service.crear_cita(session, cita_data)
         return cita
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
