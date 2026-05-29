@@ -1,16 +1,48 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+// Rutas que NO necesitan token (públicas)
+const PUBLIC_ENDPOINTS = ["/auth/login", "/auth/doctores-lista", "/health"];
+
+function getToken() {
+  try {
+    const stored = localStorage.getItem("citame_user");
+    if (!stored) return null;
+    const parsed = JSON.parse(stored);
+    return parsed.access_token || null;
+  } catch {
+    return null;
+  }
+}
+
 async function request(endpoint, options = {}) {
   const url = `${API_URL}${endpoint}`;
+
+  const isPublic = PUBLIC_ENDPOINTS.some((pub) => endpoint.startsWith(pub));
+  const token = isPublic ? null : getToken();
+
   const config = {
-    headers: { "Content-Type": "application/json", ...options.headers },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
     ...options,
   };
+
   const response = await fetch(url, config);
+
+  // Token expirado o inválido → limpiar sesión y redirigir al login
+  if (response.status === 401) {
+    localStorage.removeItem("citame_user");
+    window.location.href = "/login";
+    throw new Error("Sesión expirada. Por favor inicie sesión nuevamente.");
+  }
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
     throw new Error(error.detail || `Error ${response.status}`);
   }
+
   return response.json();
 }
 
@@ -36,20 +68,31 @@ export const citas = {
   listar: () => request("/citas/"),
   obtener: (id) => request(`/citas/${id}`),
   disponibles: (doctorId, fecha) => request(`/citas/disponibles/${doctorId}?fecha=${fecha}`),
-  actualizarEstado: (id, data) => request(`/citas/${id}/estado`, { method: "PUT", body: JSON.stringify(data) }),
+  actualizarEstado: (id, data) =>
+    request(`/citas/${id}/estado`, { method: "PUT", body: JSON.stringify(data) }),
 };
 
 export const auth = {
   login: (data) => request("/auth/login", { method: "POST", body: JSON.stringify(data) }),
   doctoresLista: () => request("/auth/doctores-lista"),
+  me: () => request("/auth/me"),
 };
 
 export const portal = {
-  misCitas: (pacienteId) => request(`/portal/mis-citas?paciente_id=${pacienteId}`),
+  misCitas: () => request("/portal/mis-citas"),
   pedirCita: (data) => request("/portal/pedir-cita", { method: "POST", body: JSON.stringify(data) }),
-  cancelarCita: (citaId, pacienteId) =>
-    request(`/portal/cancelar/${citaId}?paciente_id=${pacienteId}`, { method: "PUT" }),
+  cancelarCita: (citaId) => request(`/portal/cancelar/${citaId}`, { method: "PUT" }),
   doctoresDisponibles: () => request("/portal/doctores-disponibles"),
+};
+
+export const doctorPortal = {
+  misCitas: (estado) => request(`/doctor-portal/mis-citas?estado=${estado}`),
+  confirmar: (citaId) => request(`/doctor-portal/confirmar/${citaId}`, { method: "PUT" }),
+  obtenerCita: (citaId) => request(`/doctor-portal/cita/${citaId}`),
+  completar: (citaId, notas) =>
+    request(`/doctor-portal/completar/${citaId}?notas=${encodeURIComponent(notas)}`, {
+      method: "PUT",
+    }),
 };
 
 export const health = () => request("/health");

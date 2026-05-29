@@ -2,15 +2,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "../../hooks/useAuth";
+import { doctorPortal } from "../../services/api";
 import StatusBadge from "../../components/StatusBadge";
-
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-async function fetchJSON(url) {
-  const r = await fetch(url);
-  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || "Error");
-  return r.json();
-}
 
 export default function DoctorPortalPage() {
   const { user, loading: authLoading, logout } = useAuth("doctor");
@@ -29,19 +22,25 @@ export default function DoctorPortalPage() {
     setDataLoading(true);
     setError("");
     try {
-      const data = await fetchJSON(`${API}/doctor-portal/mis-citas?doctor_id=${user.id}&estado=${filtro}`);
+      const data = await doctorPortal.misCitas(filtro);
       setCitas(data);
-    } catch (err) { setError(err.message); }
-    finally { setDataLoading(false); }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setDataLoading(false);
+    }
   }
 
   async function confirmar(citaId) {
     setConfirmando(citaId);
     try {
-      await fetch(`${API}/doctor-portal/confirmar/${citaId}?doctor_id=${user.id}`, { method: "PUT" });
+      await doctorPortal.confirmar(citaId);
       await cargar();
-    } catch (err) { setError(err.message); }
-    finally { setConfirmando(null); }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setConfirmando(null);
+    }
   }
 
   if (authLoading) return <div className="text-center py-12 text-gray-400">Cargando...</div>;
@@ -67,21 +66,33 @@ export default function DoctorPortalPage() {
               <p className="text-sm text-gray-500">{user?.especialidad}</p>
             </div>
           </div>
-          <button onClick={logout} className="px-4 py-2 text-sm text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+          <button
+            onClick={logout}
+            className="px-4 py-2 text-sm text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+          >
             Salir
           </button>
         </div>
       </div>
 
-      {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>}
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+          {error}
+        </div>
+      )}
 
       {/* Filtros */}
       <div className="flex gap-2 mb-5">
         {filtros.map((f) => (
-          <button key={f.value} onClick={() => setFiltro(f.value)}
+          <button
+            key={f.value}
+            onClick={() => setFiltro(f.value)}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              filtro === f.value ? "bg-amber-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}>
+              filtro === f.value
+                ? "bg-amber-600 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
             {f.label}
           </button>
         ))}
@@ -118,19 +129,27 @@ export default function DoctorPortalPage() {
                 <div className="flex items-center gap-3">
                   <StatusBadge estado={c.estado} />
                   {c.estado === "pendiente" && (
-                    <button onClick={() => confirmar(c.id)} disabled={confirmando === c.id}
-                      className="px-3 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 rounded-lg hover:bg-amber-100 disabled:opacity-50">
+                    <button
+                      onClick={() => confirmar(c.id)}
+                      disabled={confirmando === c.id}
+                      className="px-3 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 rounded-lg hover:bg-amber-100 disabled:opacity-50"
+                    >
                       {confirmando === c.id ? "..." : "Confirmar"}
                     </button>
                   )}
                   {c.estado === "confirmada" && (
-                    <Link href={`/doctores-portal/cita/${c.id}`}
-                      className="px-3 py-1.5 text-xs font-medium text-brand-700 bg-brand-50 rounded-lg hover:bg-brand-100">
+                    <Link
+                      href={`/doctores-portal/cita/${c.id}`}
+                      className="px-3 py-1.5 text-xs font-medium text-brand-700 bg-brand-50 rounded-lg hover:bg-brand-100"
+                    >
                       Completar
                     </Link>
                   )}
                   {c.estado === "completada" && c.notas && (
-                    <span className="text-xs text-gray-400 italic max-w-[150px] truncate block" title={c.notas}>
+                    <span
+                      className="text-xs text-gray-400 italic max-w-[150px] truncate block"
+                      title={c.notas}
+                    >
                       &quot;{c.notas}&quot;
                     </span>
                   )}
