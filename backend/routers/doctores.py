@@ -1,89 +1,161 @@
+"""
+cita.me — CRUD de Doctores (protegido con JWT)
+
+Permisos:
+  - admin / administrativo: listar, crear, obtener, actualizar
+  - admin: desactivar (soft-delete)
+  - doctor: solo obtener su propio perfil
+  - paciente: listar (para seleccionar al pedir cita)
+"""
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from ..database import get_session
-from ..models import Doctor, TipoUsuario
-from ..schemas import DoctorCreate, DoctorResponse
-from ..auth_utils import hash_password
-from ..dependencies import get_current_user
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
-router = APIRouter(prefix="/doctores", tags=["doctores"])
+from database import get_session
+from dependencies import get_current_user, require_role, require_any_role
+from models import Doctor
+from schemas import DoctorCreate, DoctorResponse
+from security import get_password_hash
 
-def verificar_admin_o_administrativo(current_user: dict):
-    if current_user["rol"] not in ["admin", "administrativo"]:
-        raise HTTPException(status_code=403, detail="Permisos insuficientes")
+logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/doctores", tags=["Doctores"])
 
+
+# =============================================================================
+# Listar doctores activos (cualquier usuario autenticado)
+# Solo admin/administrativo ven los inactivos via filtro
+# =============================================================================
 @router.get("/", response_model=List[DoctorResponse])
 async def listar_doctores(
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_session)
+    user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
 ):
-    verificar_admin_o_administrativo(current_user)
-    stmt = select(Doctor)
-    result = await db.execute(stmt)
+    """
+    Listar doctores. Admin y administrativo ven todos (activos e inactivos).
+    Doctor y paciente solo ven los activos.
+    """
+    if user["rol"] in ("admin", "administrativo"):
+        stmt = select(Doctor).order_by(Doctor.apellido, Doctor.nombre)
+    else:
+        stmt = select(Doctor).where(Doctor.activo == True).order_by(Doctor.apellido, Doctor.nombre)
+
+    result = await session.execute(stmt)
     return result.scalars().all()
 
+
+# =============================================================================
+# Obtener un doctor por ID (cualquier usuario autenticado)
+# =============================================================================
+@router.get("/{doctor_id}", response_model=DoctorResponse)
+async def obtener_doctor(
+    doctor_id: int,
+    user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Obtener un doctor por su ID. Requiere autenticacion."""
+    doctor = await session.get(Doctor, doctor_id)
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Doctor no encontrado")
+
+    # Un doctor inactivo solo es visible para admin/administrativo
+    if not doctor.activo and user["rol"] not in ("admin", "administrativo"):
+        raise HTTPException(status_code=404, detail="Doctor no encontrado")
+
+    return doctor
+
+
+# =============================================================================
+# Crear doctor (admin, administrativo)
+# =============================================================================
 @router.post("/", response_model=DoctorResponse, status_code=201)
 async def crear_doctor(
-    doctor_data: DoctorCreate,
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_session)
+    data: DoctorCreate,
+    user: dict = Depends(require_any_role("admin", "administrativo")),
+    session: AsyncSession = Depends(get_session),
 ):
-    verificar_admin_o_administrativo(current_user)
-    stmt = select(Doctor).where(Doctor.email == doctor_data.email)
-    result = await db.execute(stmt)
+    """Registrar un nuevo doctor. Requiere admin o administrativo."""
+    stmt = select(Doctor).where(Doctor.email == data.email)
+    result = await session.execute(stmt)
     if result.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Email ya registrado")
-    
-    tipo_doctor = await db.execute(select(TipoUsuario).where(TipoUsuario.nombre == "doctor"))
-    tipo_id = tipo_doctor.scalar_one().id
-    
-    nuevo_doctor = Doctor(
-        **doctor_data.dict(exclude={"password"}),
-        password_hash=hash_password(doctor_data.password),
-        tipo_usuario_id=tipo_id
-    )
-    db.add(nuevo_doctor)
-    await db.commit()
-    await db.refresh(nuevo_doctor)
-    return nuevo_doctor
+        raise HTTPException(
+            status_code=400,
+            detail="Ya existe un doctor con ese email",
+        )
 
+    nuevo = Doctor(
+        nombre=data.nombre,
+        apellido=data.apellido,
+        especialidad=data.especialidad,
+        email=data.email,
+        telefono=data.telefono,
+        activo=True,
+        password_hash=get_password_hash(data.contrasena or "1234"),
+    )
+    session.add(nuevo)
+    await session.flush()
+
+    logger.info(
+        "[DOCTOR] %s #%s creo doctor #%s (%s)",
+        user["rol"], user["id"], nuevo.id, nuevo.email,
+    )
+    return nuevo
+
+
+# =============================================================================
+# Actualizar doctor (admin, administrativo)
+# =============================================================================
 @router.put("/{doctor_id}", response_model=DoctorResponse)
 async def actualizar_doctor(
     doctor_id: int,
-    doctor_data: DoctorCreate,
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_session)
+    data: DoctorCreate,
+    user: dict = Depends(require_any_role("admin", "administrativo")),
+    session: AsyncSession = Depends(get_session),
 ):
-    verificar_admin_o_administrativo(current_user)
-    stmt = select(Doctor).where(Doctor.id == doctor_id)
-    result = await db.execute(stmt)
-    doctor = result.scalar_one_or_none()
+    """Actualizar datos de un doctor. Requiere admin o administrativo."""
+    doctor = await session.get(Doctor, doctor_id)
     if not doctor:
         raise HTTPException(status_code=404, detail="Doctor no encontrado")
-    
-    for key, value in doctor_data.dict(exclude={"password"}).items():
-        setattr(doctor, key, value)
-    if doctor_data.password:
-        doctor.password_hash = hash_password(doctor_data.password)
-    
-    await db.commit()
-    await db.refresh(doctor)
+
+    # Verificar unicidad de email si cambio
+    if data.email != doctor.email:
+        stmt = select(Doctor).where(Doctor.email == data.email)
+        result = await session.execute(stmt)
+        if result.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Email ya registrado por otro doctor")
+
+    doctor.nombre = data.nombre
+    doctor.apellido = data.apellido
+    doctor.especialidad = data.especialidad
+    doctor.email = data.email
+    doctor.telefono = data.telefono
+
+    if data.contrasena:
+        doctor.password_hash = get_password_hash(data.contrasena)
+
+    await session.flush()
+    logger.info("[DOCTOR] %s #%s actualizo doctor #%s", user["rol"], user["id"], doctor_id)
     return doctor
 
+
+# =============================================================================
+# Desactivar doctor — soft-delete (solo admin)
+# =============================================================================
 @router.delete("/{doctor_id}")
-async def eliminar_doctor(
+async def desactivar_doctor(
     doctor_id: int,
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_session)
+    user: dict = Depends(require_role("admin")),
+    session: AsyncSession = Depends(get_session),
 ):
-    verificar_admin_o_administrativo(current_user)
-    stmt = select(Doctor).where(Doctor.id == doctor_id)
-    result = await db.execute(stmt)
-    doctor = result.scalar_one_or_none()
+    """Desactivar un doctor (soft-delete). Solo admin."""
+    doctor = await session.get(Doctor, doctor_id)
     if not doctor:
         raise HTTPException(status_code=404, detail="Doctor no encontrado")
-    await db.delete(doctor)
-    await db.commit()
-    return {"message": "Doctor eliminado"}
+
+    doctor.activo = False
+    await session.flush()
+
+    logger.info("[DOCTOR] Admin #%s desactivo doctor #%s", user["id"], doctor_id)
+    return {"mensaje": "Doctor desactivado exitosamente", "id": doctor_id}

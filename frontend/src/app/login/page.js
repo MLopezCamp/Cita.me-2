@@ -26,17 +26,23 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const payload = { rol, contrasena: form.contrasena };
-      if (rol === "admin") payload.usuario = form.usuario;
-      if (rol === "doctor") payload.email = form.email;
-      if (rol === "paciente") payload.documento = form.documento;
+      // El backend espera siempre el campo "identifier", sin importar el rol
+      let identifier;
+      if (rol === "admin") identifier = form.usuario;
+      else if (rol === "doctor") identifier = form.email;
+      else if (rol === "paciente") identifier = form.documento;
 
-      const user = await auth.login(payload);
-      localStorage.setItem("citame_user", JSON.stringify(user));
+      const payload = { rol, identifier, contrasena: form.contrasena };
+      const userData = await auth.login(payload);
 
-      if (user.rol === "admin") router.push("/");
-      else if (user.rol === "doctor") router.push("/doctores-portal");
-      else router.push("/portal");
+      // Guardar sesión completa (incluye access_token)
+      localStorage.setItem("citame_user", JSON.stringify(userData));
+
+      // Redirigir según rol
+      if (userData.rol === "admin") router.push("/");
+      else if (userData.rol === "doctor") router.push("/doctores-portal");
+      else if (userData.rol === "paciente") router.push("/portal");
+      else router.push("/");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -56,6 +62,7 @@ export default function LoginPage() {
           <p className="text-sm text-gray-500 mt-1">Ingrese a su cuenta</p>
         </div>
 
+        {/* Selector de rol */}
         <div className="flex rounded-xl overflow-hidden border border-gray-200 mb-6">
           {ROLES.map((r) => (
             <button
@@ -74,58 +81,86 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Campo identificador según rol */}
           {rol === "admin" && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
-              <input name="usuario" value={form.usuario} onChange={handleChange} required
+              <input
+                name="usuario"
+                value={form.usuario}
+                onChange={handleChange}
+                required
+                autoComplete="username"
                 placeholder="admin"
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent" />
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent"
+              />
             </div>
           )}
 
           {rol === "doctor" && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email del doctor</label>
-              <input name="email" type="email" value={form.email} onChange={handleChange} required
-                placeholder="maria.gonzalez@medicita.com"
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input
+                name="email"
+                type="email"
+                value={form.email}
+                onChange={handleChange}
+                required
+                autoComplete="email"
+                placeholder="doctor@clinica.com"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              />
             </div>
           )}
 
           {rol === "paciente" && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Número de documento</label>
-              <input name="documento" value={form.documento} onChange={handleChange} required
-                placeholder="1001234567"
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Número de documento
+              </label>
+              <input
+                name="documento"
+                value={form.documento}
+                onChange={handleChange}
+                required
+                autoComplete="off"
+                placeholder="Ej: 1234567890"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+              />
             </div>
           )}
 
+          {/* Contraseña */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
-            <input name="contrasena" type="password" value={form.contrasena} onChange={handleChange} required
+            <input
+              name="contrasena"
+              type="password"
+              value={form.contrasena}
+              onChange={handleChange}
+              required
+              autoComplete="current-password"
               placeholder="••••••••"
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent" />
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+            />
           </div>
 
+          {/* Error */}
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+              {error}
+            </div>
           )}
 
-          <button type="submit" disabled={loading}
-            className={`w-full py-2.5 text-white rounded-lg font-medium transition-colors disabled:opacity-50 ${rolActual?.color} hover:opacity-90`}>
-            {loading ? "Verificando..." : `Ingresar como ${rolActual?.label}`}
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={loading}
+            className={`w-full py-3 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${rolActual.color} hover:opacity-90`}
+          >
+            {loading ? "Ingresando..." : "Ingresar"}
           </button>
         </form>
-
-        <div className="mt-5 pt-4 border-t border-gray-100">
-          <p className="text-xs text-gray-400 text-center mb-2">Datos de prueba:</p>
-          <div className="space-y-1 text-xs text-gray-400">
-            {rol === "admin" && <p className="text-center">Usuario: <span className="font-mono text-gray-600">admin</span> · Clave: <span className="font-mono text-gray-600">admin</span></p>}
-            {rol === "doctor" && <p className="text-center">Email: <span className="font-mono text-gray-600">maria.gonzalez@medicita.com</span> · Clave: <span className="font-mono text-gray-600">1234</span></p>}
-            {rol === "paciente" && <p className="text-center">Doc: <span className="font-mono text-gray-600">1001234567</span> · Clave: <span className="font-mono text-gray-600">1234</span></p>}
-          </div>
-        </div>
       </div>
     </div>
   );

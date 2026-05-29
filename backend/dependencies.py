@@ -42,21 +42,20 @@ security_scheme = HTTPBearer(auto_error=False)
 # =============================================================================
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
 ) -> dict:
     """
     Extrae y valida el usuario desde el token JWT en el header Authorization.
-    
+
     Returns:
         dict con: {id, rol, obj}
         - id: int, el ID del usuario
         - rol: str, el rol del usuario
         - obj: el objeto ORM del usuario (Paciente, Doctor, Administrativo, o dict para admin)
-    
+
     Raises:
         HTTPException 401 si no hay token, es invalido, o el usuario no existe.
     """
-    # --- Verificar que existe el token ---
     if not credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -64,7 +63,6 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # --- Decodificar el token ---
     token_data = decode_access_token(credentials.credentials)
     if token_data is None:
         raise HTTPException(
@@ -73,7 +71,7 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # --- Parsear "sub" = "rol:id" ---
+    # Parsear "sub" = "rol:id"
     try:
         rol, user_id_str = token_data.sub.split(":")
         user_id = int(user_id_str)
@@ -83,16 +81,10 @@ async def get_current_user(
             detail="Token malformado",
         )
 
-    # --- Cargar el usuario segun su rol ---
     usuario = None
 
     if rol == "admin":
-        # El admin es un usuario especial (id=0, no esta en BD)
-        usuario = {
-            "id": 0,
-            "nombre": "Administrador",
-            "rol": "admin"
-        }
+        usuario = {"id": 0, "nombre": "Administrador", "rol": "admin"}
 
     elif rol == "paciente":
         stmt = select(Paciente).where(Paciente.id == user_id)
@@ -100,17 +92,13 @@ async def get_current_user(
         usuario = result.scalar_one_or_none()
 
     elif rol == "doctor":
-        stmt = select(Doctor).where(
-            Doctor.id == user_id,
-            Doctor.activo == True
-        )
+        stmt = select(Doctor).where(Doctor.id == user_id, Doctor.activo == True)
         result = await session.execute(stmt)
         usuario = result.scalar_one_or_none()
 
     elif rol == "administrativo":
         stmt = select(Administrativo).where(
-            Administrativo.id == user_id,
-            Administrativo.activo == True
+            Administrativo.id == user_id, Administrativo.activo == True
         )
         result = await session.execute(stmt)
         usuario = result.scalar_one_or_none()
@@ -121,7 +109,6 @@ async def get_current_user(
             detail=f"Rol no valido: {rol}",
         )
 
-    # --- Verificar que el usuario existe ---
     if usuario is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -137,7 +124,7 @@ async def get_current_user(
 def require_role(required_rol: str):
     """
     Crea una dependencia que exige un rol especifico.
-    
+
     Uso:
         @router.get("/admin-only")
         async def endpoint(user: dict = Depends(require_role("admin"))):
@@ -150,6 +137,7 @@ def require_role(required_rol: str):
                 detail=f"Se requiere rol '{required_rol}'",
             )
         return user
+
     return role_checker
 
 
@@ -159,7 +147,7 @@ def require_role(required_rol: str):
 def require_any_role(*roles: str):
     """
     Crea una dependencia que acepta cualquiera de los roles indicados.
-    
+
     Uso:
         @router.post("/citas")
         async def crear_cita(user: dict = Depends(require_any_role("admin", "administrativo"))):
@@ -172,6 +160,7 @@ def require_any_role(*roles: str):
                 detail=f"Se requiere uno de los roles: {list(roles)}",
             )
         return user
+
     return role_checker
 
 
@@ -181,7 +170,7 @@ def require_any_role(*roles: str):
 def require_permiso(permiso: str):
     """
     Crea una dependencia que verifica un permiso especifico.
-    
+
     Uso:
         @router.post("/citas")
         async def crear(user: dict = Depends(require_permiso("citas:crear"))):
@@ -195,4 +184,5 @@ def require_permiso(permiso: str):
                 detail=f"Permiso denegado: '{permiso}'",
             )
         return user
-    return require_permiso
+
+    return permiso_checker
