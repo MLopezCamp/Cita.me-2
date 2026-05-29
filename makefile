@@ -1,6 +1,6 @@
 .PHONY: help up down build logs ps clean restart status test \
         grafana redis-cmd rabbitmq-ui portainer-ui \
-        prod-up prod-down prod-pull prod-restart prod-logs prod-ps prod-status
+        start stop pull update prod-logs prod-ps prod-status
 
 PROD = docker compose -f docker-compose.prod.yml
 
@@ -20,13 +20,13 @@ help:
 	@echo "    make clean-all   — Limpieza total + imagenes huerfanas"
 	@echo ""
 	@echo "  Produccion (imagenes pre-construidas desde Docker Hub):"
-	@echo "    make prod-up      — Descargar imagenes y levantar el stack"
-	@echo "    make prod-down    — Detener el stack de produccion"
-	@echo "    make prod-pull    — Solo descargar las imagenes mas recientes"
-	@echo "    make prod-restart — Actualizar imagenes y reiniciar"
-	@echo "    make prod-logs    — Ver logs del stack de produccion"
-	@echo "    make prod-ps      — Estado de contenedores de produccion"
-	@echo "    make prod-status  — Estado + URLs de acceso (produccion)"
+	@echo "    make start      — Descargar imagenes y levantar el stack"
+	@echo "    make stop       — Detener el stack de produccion"
+	@echo "    make pull       — Solo descargar las imagenes mas recientes"
+	@echo "    make update     — Actualizar imagenes y reiniciar"
+	@echo "    make prod-logs  — Ver logs del stack de produccion"
+	@echo "    make prod-ps    — Estado de contenedores de produccion"
+	@echo "    make prod-status — Estado + URLs de acceso (produccion)"
 	@echo ""
 	@echo "  Navegador:"
 	@echo "    make grafana     — Abrir Grafana"
@@ -117,18 +117,18 @@ portainer-ui:
 
 # ── Produccion (imagenes desde Docker Hub) ──────────────────────────────────
 
-prod-pull:
+pull:
 	$(PROD) pull
 
-prod-up:
+start:
 	$(PROD) pull
 	$(PROD) up -d
 	$(MAKE) prod-status
 
-prod-down:
+stop:
 	$(PROD) down
 
-prod-restart:
+update:
 	$(PROD) pull
 	$(PROD) up -d
 
