@@ -1,5 +1,8 @@
 """Configuración centralizada de cita.me"""
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Apunta al mismo volumen compartido
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:////data/citame.db")
@@ -18,9 +21,3 @@ QUEUE_CITAS = "citame.eventos"
 EXCHANGE_CITAS = "citame.exchange"
 
 CACHE_TTL = 300
-
-...
-SECRET_KEY: str = "IX861LyQDAByoUF3c8n2nPaIn6FwHk300sHEbczN9WA"
-ALGORITHM: str = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES: int = 1296000
-...

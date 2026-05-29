@@ -48,7 +48,7 @@ export function useAuth(requiredRole = null) {
         admin: "/",
         doctor: "/doctores-portal",
         paciente: "/portal",
-        administrativo: "/",
+        administrativo: "/login",
       };
       router.replace(destinos[parsed.rol] || "/login");
       return;

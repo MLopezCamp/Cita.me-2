@@ -3,6 +3,7 @@ cita.me — Punto de entrada FastAPI
 """
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -56,12 +57,15 @@ app = FastAPI(
 # =============================================================================
 app.add_middleware(RequestIdMiddleware)
 
+_cors_env = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+_cors_origins = [o.strip() for o in _cors_env.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],  # Incluye Authorization
+    allow_headers=["*"],
 )
 
 # =============================================================================
