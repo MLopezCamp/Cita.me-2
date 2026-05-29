@@ -18,16 +18,17 @@ export default function Navbar() {
   }, [pathname]);
 
   function logout() {
+    const esPersonal = user?.rol !== "paciente";
     localStorage.removeItem("citame_user");
-    router.push("/login");
+    router.push(esPersonal ? "/staff" : "/login");
   }
 
-  // No logueado
   if (!user) return null;
 
-  // Links según rol
+  const esStaff = user.rol === "admin" || user.rol === "administrativo";
+
   let links = [];
-  if (user.rol === "admin") {
+  if (esStaff) {
     links = [
       { href: "/", label: "Inicio" },
       { href: "/pacientes", label: "Pacientes" },
@@ -48,21 +49,24 @@ export default function Navbar() {
 
   const colores = {
     admin: "bg-gray-800",
+    administrativo: "bg-gray-800",
     doctor: "bg-amber-600",
     paciente: "bg-sky-600",
   };
   const coloresTexto = {
     admin: "text-gray-800",
+    administrativo: "text-gray-600",
     doctor: "text-amber-600",
     paciente: "text-sky-600",
   };
+
+  const homeHref = esStaff ? "/" : user.rol === "doctor" ? "/doctores-portal" : "/portal";
 
   return (
     <nav className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-6xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          <Link href={user.rol === "admin" ? "/" : user.rol === "doctor" ? "/doctores-portal" : "/portal"}
-            className="flex items-center gap-2.5">
+          <Link href={homeHref} className="flex items-center gap-2.5">
             <div className={`w-9 h-9 rounded-lg ${colores[user.rol]} flex items-center justify-center`}>
               <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
@@ -76,7 +80,7 @@ export default function Navbar() {
           <div className="flex items-center gap-1">
             {links.map((link) => {
               const isActive = pathname === link.href;
-              const activeClass = user.rol === "admin"
+              const activeClass = esStaff
                 ? "bg-gray-100 text-gray-800"
                 : user.rol === "doctor"
                   ? "bg-amber-50 text-amber-700"
@@ -92,7 +96,6 @@ export default function Navbar() {
             })}
           </div>
 
-          {/* Usuario + logout */}
           <div className="flex items-center gap-3">
             <div className="text-right hidden sm:block">
               <p className="text-sm font-medium text-gray-800">{user.nombre}</p>
@@ -100,7 +103,7 @@ export default function Navbar() {
             </div>
             <button onClick={logout}
               className="px-3 py-2 rounded-lg text-sm text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors"
-              title="Cerrar sesión">
+              title="Cerrar sesion">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
               </svg>

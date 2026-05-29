@@ -5,7 +5,7 @@ import { pacientes } from "../../services/api";
 import Modal from "../../components/Modal";
 
 export default function PacientesPage() {
-  const { user, loading: authLoading } = useAuth("admin");
+  const { user, loading: authLoading } = useAuth(["admin", "administrativo"]);
   const [lista, setLista] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);

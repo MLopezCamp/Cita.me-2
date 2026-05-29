@@ -10,7 +10,7 @@ const ESPECIALIDADES = [
 ];
 
 export default function DoctoresPage() {
-  const { user, loading: authLoading } = useAuth("admin");
+  const { user, loading: authLoading } = useAuth(["admin", "administrativo"]);
   const [lista, setLista] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [modalDoctor, setModalDoctor] = useState(false);

@@ -3,14 +3,14 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 /**
- * Hook de autenticación para proteger páginas.
- * Lee la sesión del localStorage y redirige a /login si no hay sesión válida.
+ * Hook de autenticacion para proteger paginas.
  *
  * Uso:
- *   const { user, loading, logout } = useAuth();            // cualquier rol autenticado
- *   const { user, loading, logout } = useAuth("admin");     // solo admin
- *   const { user, loading, logout } = useAuth("paciente");  // solo paciente
- *   const { user, loading, logout } = useAuth("doctor");    // solo doctor
+ *   useAuth()                               — cualquier rol autenticado
+ *   useAuth("admin")                        — solo admin
+ *   useAuth(["admin", "administrativo"])    — admin o administrativo
+ *   useAuth("paciente")                     — solo paciente
+ *   useAuth("doctor")                       — solo doctor
  */
 export function useAuth(requiredRole = null) {
   const router = useRouter();
@@ -34,21 +34,22 @@ export function useAuth(requiredRole = null) {
       return;
     }
 
-    // Verificar que el objeto tiene los campos mínimos esperados
     if (!parsed.access_token || !parsed.rol) {
       localStorage.removeItem("citame_user");
       router.replace("/login");
       return;
     }
 
-    // Verificar rol si se requiere uno específico
-    if (requiredRole && parsed.rol !== requiredRole) {
-      // Redirigir al portal correcto según el rol real del usuario
+    const allowedRoles = Array.isArray(requiredRole)
+      ? requiredRole
+      : requiredRole ? [requiredRole] : null;
+
+    if (allowedRoles && !allowedRoles.includes(parsed.rol)) {
       const destinos = {
         admin: "/",
+        administrativo: "/",
         doctor: "/doctores-portal",
         paciente: "/portal",
-        administrativo: "/login",
       };
       router.replace(destinos[parsed.rol] || "/login");
       return;
@@ -59,8 +60,9 @@ export function useAuth(requiredRole = null) {
   }, [router, requiredRole]);
 
   function logout() {
+    const esPersonal = user?.rol !== "paciente";
     localStorage.removeItem("citame_user");
-    router.replace("/login");
+    router.replace(esPersonal ? "/staff" : "/login");
   }
 
   return { user, loading, logout };

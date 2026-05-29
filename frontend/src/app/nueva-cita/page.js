@@ -6,7 +6,7 @@ import { doctores, pacientes, citas } from "../../services/api";
 
 export default function NuevaCitaPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth("admin");
+  const { user, loading: authLoading } = useAuth(["admin", "administrativo"]);
   const [doctoresList, setDoctoresList] = useState([]);
   const [pacientesList, setPacientesList] = useState([]);
   const [slots, setSlots] = useState([]);

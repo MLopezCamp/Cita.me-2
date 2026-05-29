@@ -5,7 +5,7 @@ import { citas, doctores, pacientes } from "../services/api";
 import { useAuth } from "../hooks/useAuth";
 
 export default function HomePage() {
-  const { user, loading } = useAuth("admin");
+  const { user, loading } = useAuth(["admin", "administrativo"]);
   const [stats, setStats] = useState({ citas: 0, doctores: 0, pacientes: 0 });
   const [cargando, setCargando] = useState(true);
 
