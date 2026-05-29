@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "../../hooks/useAuth";
-import { pacientes } from "../../services/api";
+import { administrativos } from "../../services/api";
 import Modal from "../../components/Modal";
 
 function generarContrasena() {
@@ -9,8 +9,8 @@ function generarContrasena() {
   return Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
 }
 
-export default function PacientesPage() {
-  const { user, loading: authLoading } = useAuth(["admin", "administrativo"]);
+export default function AdministrativosPage() {
+  const { user, loading: authLoading } = useAuth("admin");
   const [lista, setLista] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -20,18 +20,17 @@ export default function PacientesPage() {
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
 
   const [form, setForm] = useState({
-    nombre: "", apellido: "", documento: "", email: "", telefono: "",
-    fecha_nacimiento: "", contrasena: "",
+    nombre: "", apellido: "", email: "", telefono: "", contrasena: "",
   });
 
   useEffect(() => {
     if (!user) return;
-    cargarPacientes();
+    cargarLista();
   }, [user]);
 
-  async function cargarPacientes() {
+  async function cargarLista() {
     try {
-      const data = await pacientes.listar();
+      const data = await administrativos.listar();
       setLista(data);
     } catch (err) {
       setError(err.message);
@@ -40,15 +39,15 @@ export default function PacientesPage() {
     }
   }
 
-  function handleChange(e) {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  }
-
   function abrirModal() {
-    setForm({ nombre: "", apellido: "", documento: "", email: "", telefono: "", fecha_nacimiento: "", contrasena: "" });
+    setForm({ nombre: "", apellido: "", email: "", telefono: "", contrasena: "" });
     setError("");
     setMostrarContrasena(false);
     setModalOpen(true);
+  }
+
+  function handleChange(e) {
+    setForm({ ...form, [e.target.name]: e.target.value });
   }
 
   async function handleSubmit(e) {
@@ -56,9 +55,9 @@ export default function PacientesPage() {
     setEnviando(true);
     setError("");
     try {
-      await pacientes.crear(form);
+      await administrativos.crear(form);
       setModalOpen(false);
-      await cargarPacientes();
+      await cargarLista();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -69,9 +68,9 @@ export default function PacientesPage() {
   async function handleEliminar(id) {
     setError("");
     try {
-      await pacientes.eliminar(id);
+      await administrativos.eliminar(id);
       setConfirmandoId(null);
-      await cargarPacientes();
+      await cargarLista();
     } catch (err) {
       setError(err.message);
       setConfirmandoId(null);
@@ -86,7 +85,7 @@ export default function PacientesPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-extrabold text-gray-900">Pacientes</h1>
+          <h1 className="text-2xl font-extrabold text-gray-900">Personal Administrativo</h1>
           <p className="text-sm text-gray-500">{lista.length} registrados</p>
         </div>
         <button
@@ -96,7 +95,7 @@ export default function PacientesPage() {
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
-          Nuevo Paciente
+          Nuevo Administrativo
         </button>
       </div>
 
@@ -108,8 +107,8 @@ export default function PacientesPage() {
         <div className="text-center py-12 text-gray-400">Cargando...</div>
       ) : lista.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-xl border border-gray-100">
-          <p className="text-gray-400 text-lg mb-2">No hay pacientes registrados</p>
-          <p className="text-gray-300 text-sm">Haga clic en "Nuevo Paciente" para comenzar</p>
+          <p className="text-gray-400 text-lg mb-2">No hay personal administrativo registrado</p>
+          <p className="text-gray-300 text-sm">Haga clic en "Nuevo Administrativo" para comenzar</p>
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
@@ -117,41 +116,41 @@ export default function PacientesPage() {
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="text-left px-5 py-3 font-semibold text-gray-500">Nombre</th>
-                <th className="text-left px-5 py-3 font-semibold text-gray-500">Documento</th>
                 <th className="text-left px-5 py-3 font-semibold text-gray-500">Email</th>
                 <th className="text-left px-5 py-3 font-semibold text-gray-500">Teléfono</th>
-                <th className="text-left px-5 py-3 font-semibold text-gray-500">Nacimiento</th>
-                {user?.rol === "admin" && (
-                  <th className="text-left px-5 py-3 font-semibold text-gray-500"></th>
-                )}
+                <th className="text-left px-5 py-3 font-semibold text-gray-500">Estado</th>
+                <th className="text-left px-5 py-3 font-semibold text-gray-500"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {lista.map((p, i) => (
-                <tr key={p.id} className="card-animate hover:bg-gray-50 transition-colors" style={{ animationDelay: `${i * 40}ms` }}>
-                  <td className="px-5 py-3 font-medium text-gray-800">{p.nombre} {p.apellido}</td>
-                  <td className="px-5 py-3 text-gray-600 font-mono text-xs">{p.documento}</td>
-                  <td className="px-5 py-3 text-gray-600">{p.email}</td>
-                  <td className="px-5 py-3 text-gray-600">{p.telefono}</td>
-                  <td className="px-5 py-3 text-gray-500">{p.fecha_nacimiento}</td>
-                  {user?.rol === "admin" && (
-                    <td className="px-5 py-3 text-right">
-                      {confirmandoId === p.id ? (
+              {lista.map((a, i) => (
+                <tr key={a.id} className={`card-animate hover:bg-gray-50 transition-colors ${!a.activo ? "opacity-50" : ""}`} style={{ animationDelay: `${i * 40}ms` }}>
+                  <td className="px-5 py-3 font-medium text-gray-800">{a.nombre} {a.apellido}</td>
+                  <td className="px-5 py-3 text-gray-600">{a.email}</td>
+                  <td className="px-5 py-3 text-gray-600">{a.telefono}</td>
+                  <td className="px-5 py-3">
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${a.activo ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
+                      {a.activo ? "Activo" : "Inactivo"}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3 text-right">
+                    {a.activo && (
+                      confirmandoId === a.id ? (
                         <span className="inline-flex items-center gap-2">
-                          <span className="text-xs text-gray-500">¿Eliminar?</span>
-                          <button onClick={() => handleEliminar(p.id)} className="text-xs text-red-600 font-semibold hover:underline">Sí</button>
+                          <span className="text-xs text-gray-500">¿Desactivar?</span>
+                          <button onClick={() => handleEliminar(a.id)} className="text-xs text-red-600 font-semibold hover:underline">Sí</button>
                           <button onClick={() => setConfirmandoId(null)} className="text-xs text-gray-400 hover:underline">No</button>
                         </span>
                       ) : (
                         <button
-                          onClick={() => setConfirmandoId(p.id)}
+                          onClick={() => setConfirmandoId(a.id)}
                           className="text-xs text-red-400 hover:text-red-600 transition-colors"
                         >
-                          Eliminar
+                          Desactivar
                         </button>
-                      )}
-                    </td>
-                  )}
+                      )
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -159,7 +158,7 @@ export default function PacientesPage() {
         </div>
       )}
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Nuevo Paciente">
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Nuevo Administrativo">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -172,22 +171,12 @@ export default function PacientesPage() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Documento</label>
-            <input name="documento" value={form.documento} onChange={handleChange} required className={inputClass} />
-          </div>
-          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <input name="email" type="email" value={form.email} onChange={handleChange} required className={inputClass} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
-              <input name="telefono" value={form.telefono} onChange={handleChange} required className={inputClass} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de nacimiento</label>
-              <input name="fecha_nacimiento" type="date" value={form.fecha_nacimiento} onChange={handleChange} required className={inputClass} />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+            <input name="telefono" value={form.telefono} onChange={handleChange} required className={inputClass} />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
@@ -229,7 +218,7 @@ export default function PacientesPage() {
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button type="submit" disabled={enviando}
             className="w-full py-2.5 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 transition-colors disabled:opacity-50">
-            {enviando ? "Guardando..." : "Registrar Paciente"}
+            {enviando ? "Guardando..." : "Registrar Administrativo"}
           </button>
         </form>
       </Modal>

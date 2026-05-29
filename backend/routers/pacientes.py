@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
 from database import get_session
-from dependencies import get_current_user, require_any_role
+from dependencies import get_current_user, require_any_role, require_role
 from models import Paciente
 from schemas import PacienteCreate, PacienteResponse
 from security import get_password_hash
@@ -181,3 +181,24 @@ async def actualizar_paciente(
     await session.flush()
     logger.info("[PACIENTE] %s #%s actualizo paciente #%s", rol, user["id"], paciente_id)
     return paciente
+
+
+# =============================================================================
+# Eliminar paciente (solo admin) — hard delete con cascade via ORM
+# =============================================================================
+@router.delete("/{paciente_id}")
+async def eliminar_paciente(
+    paciente_id: int,
+    user: dict = Depends(require_role("admin")),
+    session: AsyncSession = Depends(get_session),
+):
+    """Eliminar un paciente permanentemente. Solo admin. Elimina citas y partes medicos en cascada."""
+    paciente = await session.get(Paciente, paciente_id)
+    if not paciente:
+        raise HTTPException(status_code=404, detail="Paciente no encontrado")
+
+    await session.delete(paciente)
+    await session.flush()
+
+    logger.info("[ADMIN] Admin #%s elimino paciente #%s (%s)", user["id"], paciente_id, paciente.documento)
+    return {"mensaje": "Paciente eliminado exitosamente", "id": paciente_id}

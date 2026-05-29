@@ -35,6 +35,7 @@ export default function Navbar() {
       { href: "/doctores", label: "Doctores" },
       { href: "/citas", label: "Citas" },
       { href: "/nueva-cita", label: "Nueva Cita" },
+      ...(user.rol === "admin" ? [{ href: "/administrativos", label: "Personal" }] : []),
     ];
   } else if (user.rol === "doctor") {
     links = [

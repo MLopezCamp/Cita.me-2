@@ -141,21 +141,43 @@ async def actualizar_doctor(
 
 
 # =============================================================================
-# Desactivar doctor — soft-delete (solo admin)
+# Activar / desactivar doctor (solo admin)
 # =============================================================================
-@router.delete("/{doctor_id}")
-async def desactivar_doctor(
+@router.put("/{doctor_id}/activo")
+async def cambiar_estado_doctor(
     doctor_id: int,
     user: dict = Depends(require_role("admin")),
     session: AsyncSession = Depends(get_session),
 ):
-    """Desactivar un doctor (soft-delete). Solo admin."""
+    """Alternar estado activo/inactivo de un doctor. Solo admin."""
     doctor = await session.get(Doctor, doctor_id)
     if not doctor:
         raise HTTPException(status_code=404, detail="Doctor no encontrado")
 
-    doctor.activo = False
+    doctor.activo = not doctor.activo
     await session.flush()
 
-    logger.info("[DOCTOR] Admin #%s desactivo doctor #%s", user["id"], doctor_id)
-    return {"mensaje": "Doctor desactivado exitosamente", "id": doctor_id}
+    estado = "activado" if doctor.activo else "desactivado"
+    logger.info("[DOCTOR] Admin #%s %s doctor #%s", user["id"], estado, doctor_id)
+    return {"activo": doctor.activo, "id": doctor_id}
+
+
+# =============================================================================
+# Eliminar doctor — hard delete con cascade (solo admin)
+# =============================================================================
+@router.delete("/{doctor_id}")
+async def eliminar_doctor(
+    doctor_id: int,
+    user: dict = Depends(require_role("admin")),
+    session: AsyncSession = Depends(get_session),
+):
+    """Eliminar un doctor permanentemente. Solo admin. Elimina horarios y citas en cascada."""
+    doctor = await session.get(Doctor, doctor_id)
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Doctor no encontrado")
+
+    await session.delete(doctor)
+    await session.flush()
+
+    logger.info("[DOCTOR] Admin #%s elimino doctor #%s (%s)", user["id"], doctor_id, doctor.email)
+    return {"mensaje": "Doctor eliminado exitosamente", "id": doctor_id}

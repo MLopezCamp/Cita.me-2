@@ -50,12 +50,21 @@ export const pacientes = {
   crear: (data) => request("/pacientes/", { method: "POST", body: JSON.stringify(data) }),
   listar: () => request("/pacientes/"),
   obtener: (id) => request(`/pacientes/${id}`),
+  eliminar: (id) => request(`/pacientes/${id}`, { method: "DELETE" }),
 };
 
 export const doctores = {
   crear: (data) => request("/doctores/", { method: "POST", body: JSON.stringify(data) }),
   listar: () => request("/doctores/"),
   obtener: (id) => request(`/doctores/${id}`),
+  toggleActivo: (id) => request(`/doctores/${id}/activo`, { method: "PUT" }),
+  eliminar: (id) => request(`/doctores/${id}`, { method: "DELETE" }),
+};
+
+export const administrativos = {
+  crear: (data) => request("/administrativos/", { method: "POST", body: JSON.stringify(data) }),
+  listar: () => request("/administrativos/"),
+  eliminar: (id) => request(`/administrativos/${id}`, { method: "DELETE" }),
 };
 
 export const horarios = {
