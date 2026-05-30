@@ -16,6 +16,7 @@ from database import get_session
 from dependencies import get_current_user, require_role, require_any_role
 from models import Horario, Doctor
 from schemas import HorarioCreate, HorarioResponse
+from messaging.producer import publish_event
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/horarios", tags=["Horarios"])
@@ -61,6 +62,14 @@ async def crear_horario(
     horario = Horario(**data.model_dump())
     session.add(horario)
     await session.flush()
+
+    await publish_event("horario.nuevo", {
+        "horario_id": horario.id,
+        "doctor_id": horario.doctor_id,
+        "dia_semana": horario.dia_semana,
+        "hora_inicio": str(horario.hora_inicio),
+        "hora_fin": str(horario.hora_fin),
+    })
 
     logger.info(
         "[HORARIO] %s #%s creo: doctor=%s, %s %s-%s",
@@ -137,6 +146,38 @@ async def actualizar_horario(
         user["rol"], user["id"], horario_id
     )
     return horario
+
+
+# =============================================================================
+# Activar horario inactivo (admin, administrativo)
+# =============================================================================
+@router.put("/{horario_id}/activar")
+async def activar_horario(
+    horario_id: int,
+    session: AsyncSession = Depends(get_session),
+    user: dict = Depends(require_any_role("admin", "administrativo")),
+):
+    """Reactivar un horario previamente desactivado. Notifica a pacientes con citas pendientes en la especialidad."""
+    horario = await session.get(Horario, horario_id)
+    if not horario:
+        raise HTTPException(status_code=404, detail="Horario no encontrado")
+
+    if horario.activo:
+        raise HTTPException(status_code=400, detail="El horario ya esta activo")
+
+    horario.activo = True
+    await session.flush()
+
+    await publish_event("horario.nuevo", {
+        "horario_id": horario.id,
+        "doctor_id": horario.doctor_id,
+        "dia_semana": horario.dia_semana,
+        "hora_inicio": str(horario.hora_inicio),
+        "hora_fin": str(horario.hora_fin),
+    })
+
+    logger.info("[HORARIO] %s #%s activo horario #%s", user["rol"], user["id"], horario_id)
+    return {"mensaje": "Horario activado exitosamente", "horario_id": horario_id}
 
 
 # =============================================================================

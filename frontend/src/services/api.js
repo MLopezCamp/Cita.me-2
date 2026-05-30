@@ -50,6 +50,7 @@ export const pacientes = {
   crear: (data) => request("/pacientes/", { method: "POST", body: JSON.stringify(data) }),
   listar: () => request("/pacientes/"),
   obtener: (id) => request(`/pacientes/${id}`),
+  actualizar: (id, data) => request(`/pacientes/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   eliminar: (id) => request(`/pacientes/${id}`, { method: "DELETE" }),
 };
 
@@ -102,6 +103,11 @@ export const doctorPortal = {
     request(`/doctor-portal/completar/${citaId}?notas=${encodeURIComponent(notas)}`, {
       method: "PUT",
     }),
+};
+
+export const partesMedicos = {
+  crear: (data) => request("/partes-medicos/", { method: "POST", body: JSON.stringify(data) }),
+  porCita: (citaId) => request(`/partes-medicos/cita/${citaId}`),
 };
 
 export const health = () => request("/health");

@@ -9,20 +9,23 @@ function generarContrasena() {
   return Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
 }
 
+const FORM_VACIO = {
+  nombre: "", apellido: "", documento: "", email: "", telefono: "",
+  fecha_nacimiento: "", contrasena: "",
+};
+
 export default function PacientesPage() {
   const { user, loading: authLoading } = useAuth(["admin", "administrativo"]);
   const [lista, setLista] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [editandoId, setEditandoId] = useState(null);
   const [error, setError] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [confirmandoId, setConfirmandoId] = useState(null);
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
 
-  const [form, setForm] = useState({
-    nombre: "", apellido: "", documento: "", email: "", telefono: "",
-    fecha_nacimiento: "", contrasena: "",
-  });
+  const [form, setForm] = useState(FORM_VACIO);
 
   useEffect(() => {
     if (!user) return;
@@ -44,8 +47,25 @@ export default function PacientesPage() {
     setForm({ ...form, [e.target.name]: e.target.value });
   }
 
-  function abrirModal() {
-    setForm({ nombre: "", apellido: "", documento: "", email: "", telefono: "", fecha_nacimiento: "", contrasena: "" });
+  function abrirModalNuevo() {
+    setEditandoId(null);
+    setForm(FORM_VACIO);
+    setError("");
+    setMostrarContrasena(false);
+    setModalOpen(true);
+  }
+
+  function abrirModalEditar(p) {
+    setEditandoId(p.id);
+    setForm({
+      nombre: p.nombre,
+      apellido: p.apellido,
+      documento: p.documento,
+      email: p.email,
+      telefono: p.telefono,
+      fecha_nacimiento: p.fecha_nacimiento,
+      contrasena: "",
+    });
     setError("");
     setMostrarContrasena(false);
     setModalOpen(true);
@@ -56,7 +76,11 @@ export default function PacientesPage() {
     setEnviando(true);
     setError("");
     try {
-      await pacientes.crear(form);
+      if (editandoId) {
+        await pacientes.actualizar(editandoId, form);
+      } else {
+        await pacientes.crear(form);
+      }
       setModalOpen(false);
       await cargarPacientes();
     } catch (err) {
@@ -90,7 +114,7 @@ export default function PacientesPage() {
           <p className="text-sm text-gray-500">{lista.length} registrados</p>
         </div>
         <button
-          onClick={abrirModal}
+          onClick={abrirModalNuevo}
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 transition-colors"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -121,9 +145,7 @@ export default function PacientesPage() {
                 <th className="text-left px-5 py-3 font-semibold text-gray-500">Email</th>
                 <th className="text-left px-5 py-3 font-semibold text-gray-500">Teléfono</th>
                 <th className="text-left px-5 py-3 font-semibold text-gray-500">Nacimiento</th>
-                {user?.rol === "admin" && (
-                  <th className="text-left px-5 py-3 font-semibold text-gray-500"></th>
-                )}
+                <th className="text-left px-5 py-3 font-semibold text-gray-500"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -134,24 +156,32 @@ export default function PacientesPage() {
                   <td className="px-5 py-3 text-gray-600">{p.email}</td>
                   <td className="px-5 py-3 text-gray-600">{p.telefono}</td>
                   <td className="px-5 py-3 text-gray-500">{p.fecha_nacimiento}</td>
-                  {user?.rol === "admin" && (
-                    <td className="px-5 py-3 text-right">
-                      {confirmandoId === p.id ? (
-                        <span className="inline-flex items-center gap-2">
-                          <span className="text-xs text-gray-500">¿Eliminar?</span>
-                          <button onClick={() => handleEliminar(p.id)} className="text-xs text-red-600 font-semibold hover:underline">Sí</button>
-                          <button onClick={() => setConfirmandoId(null)} className="text-xs text-gray-400 hover:underline">No</button>
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => setConfirmandoId(p.id)}
-                          className="text-xs text-red-400 hover:text-red-600 transition-colors"
-                        >
-                          Eliminar
-                        </button>
+                  <td className="px-5 py-3 text-right">
+                    <span className="inline-flex items-center gap-3">
+                      <button
+                        onClick={() => abrirModalEditar(p)}
+                        className="text-xs text-brand-600 hover:text-brand-800 transition-colors font-medium"
+                      >
+                        Editar
+                      </button>
+                      {user?.rol === "admin" && (
+                        confirmandoId === p.id ? (
+                          <span className="inline-flex items-center gap-2">
+                            <span className="text-xs text-gray-500">¿Eliminar?</span>
+                            <button onClick={() => handleEliminar(p.id)} className="text-xs text-red-600 font-semibold hover:underline">Sí</button>
+                            <button onClick={() => setConfirmandoId(null)} className="text-xs text-gray-400 hover:underline">No</button>
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmandoId(p.id)}
+                            className="text-xs text-red-400 hover:text-red-600 transition-colors"
+                          >
+                            Eliminar
+                          </button>
+                        )
                       )}
-                    </td>
-                  )}
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -159,7 +189,7 @@ export default function PacientesPage() {
         </div>
       )}
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Nuevo Paciente">
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editandoId ? "Editar Paciente" : "Nuevo Paciente"}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -190,7 +220,9 @@ export default function PacientesPage() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Contraseña {editandoId && <span className="font-normal text-gray-400">(dejar vacío para no cambiar)</span>}
+            </label>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <input
@@ -198,9 +230,9 @@ export default function PacientesPage() {
                   type={mostrarContrasena ? "text" : "password"}
                   value={form.contrasena}
                   onChange={handleChange}
-                  required
-                  minLength={4}
-                  placeholder="Mínimo 4 caracteres"
+                  required={!editandoId}
+                  minLength={editandoId ? 0 : 4}
+                  placeholder={editandoId ? "Sin cambios" : "Mínimo 4 caracteres"}
                   className={inputClass + " pr-9"}
                 />
                 <button
@@ -229,7 +261,7 @@ export default function PacientesPage() {
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button type="submit" disabled={enviando}
             className="w-full py-2.5 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 transition-colors disabled:opacity-50">
-            {enviando ? "Guardando..." : "Registrar Paciente"}
+            {enviando ? "Guardando..." : editandoId ? "Guardar Cambios" : "Registrar Paciente"}
           </button>
         </form>
       </Modal>

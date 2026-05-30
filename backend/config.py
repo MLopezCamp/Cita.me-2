@@ -21,3 +21,6 @@ QUEUE_CITAS = "citame.eventos"
 EXCHANGE_CITAS = "citame.exchange"
 
 CACHE_TTL = 300
+
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "re_HyYgZNMm_FRatQQAVS75twbmhuv84WtT6")
+RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL", "onboarding@resend.dev")

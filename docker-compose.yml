@@ -54,6 +54,8 @@ services:
       REDIS_URL: redis://redis:6379/0
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       DATABASE_URL: sqlite+aiosqlite:////data/citame.db
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-onboarding@resend.dev}
     depends_on:
       redis:
         condition: service_healthy
@@ -80,6 +82,8 @@ services:
       REDIS_URL: redis://redis:6379/0
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       DATABASE_URL: sqlite+aiosqlite:////data/citame.db
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-onboarding@resend.dev}
     depends_on:
       rabbitmq:
         condition: service_healthy

@@ -1,6 +1,6 @@
 """Esquemas Pydantic para validacion de entrada/salida."""
 from datetime import date, time, datetime
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 # =============================================================================
@@ -81,7 +81,12 @@ class PacienteCreate(BaseModel):
     email: EmailStr
     telefono: str = Field(..., min_length=7, max_length=30)
     fecha_nacimiento: date
-    contrasena: str | None = Field(default="1234", min_length=4)
+    contrasena: str | None = Field(default=None, min_length=4)
+
+    @field_validator("contrasena", mode="before")
+    @classmethod
+    def blank_to_none(cls, v):
+        return None if v == "" else v
 
 
 class PacienteResponse(BaseModel):
@@ -107,7 +112,12 @@ class DoctorCreate(BaseModel):
     especialidad: str = Field(..., min_length=3, max_length=150)
     email: EmailStr
     telefono: str = Field(..., min_length=7, max_length=30)
-    contrasena: str | None = Field(default="1234", min_length=4)
+    contrasena: str | None = Field(default=None, min_length=4)
+
+    @field_validator("contrasena", mode="before")
+    @classmethod
+    def blank_to_none(cls, v):
+        return None if v == "" else v
 
 
 class DoctorResponse(BaseModel):

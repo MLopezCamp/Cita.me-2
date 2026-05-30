@@ -13,6 +13,7 @@ from database import get_session
 from dependencies import get_current_user, require_role, require_any_role
 from models import ParteMedico, Cita
 from schemas import ParteMedicoCreate, ParteMedicoResponse
+from messaging.producer import publish_event
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/partes-medicos", tags=["Partes Medicos"])
@@ -70,6 +71,12 @@ async def crear_parte_medico(
     session.add(parte)
     await session.flush()
 
+    await publish_event("parte_medico.creado", {
+        "parte_id": parte.id,
+        "cita_id": parte.cita_id,
+        "doctor_id": parte.doctor_id,
+    })
+
     logger.info("[PARTE_MEDICO] Dr.#%s registro parte para cita #%s", doctor_id, data.cita_id)
     return parte
 
@@ -81,7 +88,7 @@ async def crear_parte_medico(
 async def obtener_parte_por_cita(
     cita_id: int,
     session: AsyncSession = Depends(get_session),
-    user: dict = Depends(require_any_role("doctor", "admin")),
+    user: dict = Depends(get_current_user),
 ):
     """Obtener el parte medico asociado a una cita especifica."""
     stmt = select(ParteMedico).where(ParteMedico.cita_id == cita_id)
@@ -91,9 +98,14 @@ async def obtener_parte_por_cita(
     if not parte:
         raise HTTPException(status_code=404, detail="Parte medico no encontrado")
 
-    # Si es doctor, verificar que sea su parte
-    if user["rol"] == "doctor" and parte.doctor_id != user["id"]:
+    rol = user["rol"]
+    if rol == "doctor" and parte.doctor_id != user["id"]:
         raise HTTPException(status_code=403, detail="No tiene permiso para ver este parte medico")
+
+    if rol == "paciente":
+        cita = await session.get(Cita, cita_id)
+        if not cita or cita.paciente_id != user["id"]:
+            raise HTTPException(status_code=403, detail="No tiene permiso para ver este parte medico")
 
     return parte
 

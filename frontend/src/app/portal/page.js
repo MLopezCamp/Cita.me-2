@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { portal } from "../../services/api";
+import { portal, partesMedicos } from "../../services/api";
 import { useAuth } from "../../hooks/useAuth";
 import StatusBadge from "../../components/StatusBadge";
 
@@ -11,6 +11,9 @@ export default function PortalPage() {
   const [dataLoading, setDataLoading] = useState(true);
   const [error, setError] = useState("");
   const [cancelando, setCancelando] = useState(null);
+  const [parteAbierto, setParteAbierto] = useState(null);
+  const [parteData, setParteData] = useState({});
+  const [parteLoading, setParteLoading] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -40,6 +43,21 @@ export default function PortalPage() {
       setError(err.message);
     } finally {
       setCancelando(null);
+    }
+  }
+
+  async function verParte(citaId) {
+    if (parteAbierto === citaId) { setParteAbierto(null); return; }
+    setParteAbierto(citaId);
+    if (parteData[citaId] !== undefined) return;
+    setParteLoading(true);
+    try {
+      const p = await partesMedicos.porCita(citaId);
+      setParteData((prev) => ({ ...prev, [citaId]: p }));
+    } catch {
+      setParteData((prev) => ({ ...prev, [citaId]: null }));
+    } finally {
+      setParteLoading(false);
     }
   }
 
@@ -158,13 +176,51 @@ export default function PortalPage() {
           </h2>
           <div className="space-y-2">
             {historial.map((c) => (
-              <div key={c.id} className="bg-gray-50 rounded-xl p-4 opacity-70">
-                <div className="flex items-center justify-between text-sm">
+              <div key={c.id} className="bg-gray-50 rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between text-sm p-4">
                   <span className="font-medium text-gray-600">
                     {c.fecha} — {c.hora} · {c.doctor_nombre}
                   </span>
-                  <StatusBadge estado={c.estado} />
+                  <div className="flex items-center gap-2">
+                    <StatusBadge estado={c.estado} />
+                    {c.estado === "completada" && (
+                      <button
+                        onClick={() => verParte(c.id)}
+                        className="text-xs text-sky-600 hover:text-sky-800 font-medium transition-colors"
+                      >
+                        {parteAbierto === c.id ? "Ocultar" : "Parte médico"}
+                      </button>
+                    )}
+                  </div>
                 </div>
+                {parteAbierto === c.id && (
+                  <div className="border-t border-gray-200 bg-white px-4 pb-4 pt-3 text-sm">
+                    {parteLoading && parteData[c.id] === undefined ? (
+                      <p className="text-gray-400">Cargando...</p>
+                    ) : parteData[c.id] ? (
+                      <div className="space-y-2">
+                        <div>
+                          <span className="text-xs font-semibold text-gray-400 uppercase">Diagnóstico</span>
+                          <p className="text-gray-700 mt-0.5">{parteData[c.id].diagnostico}</p>
+                        </div>
+                        {parteData[c.id].tratamiento && (
+                          <div>
+                            <span className="text-xs font-semibold text-gray-400 uppercase">Tratamiento</span>
+                            <p className="text-gray-700 mt-0.5">{parteData[c.id].tratamiento}</p>
+                          </div>
+                        )}
+                        {parteData[c.id].observaciones && (
+                          <div>
+                            <span className="text-xs font-semibold text-gray-400 uppercase">Observaciones</span>
+                            <p className="text-gray-700 mt-0.5">{parteData[c.id].observaciones}</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-gray-400 italic">No hay parte médico registrado para esta cita.</p>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
