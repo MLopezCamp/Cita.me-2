@@ -35,6 +35,14 @@ class AdministrativoCreate(BaseModel):
     contrasena: str = Field(..., min_length=4)
 
 
+class AdministrativoUpdate(BaseModel):
+    nombre: str = Field(..., min_length=2, max_length=100)
+    apellido: str = Field(..., min_length=2, max_length=100)
+    email: EmailStr
+    telefono: str = Field(..., min_length=7, max_length=30)
+    contrasena: str | None = Field(None, min_length=4)
+
+
 class AdministrativoResponse(BaseModel):
     id: int
     nombre: str
@@ -139,7 +147,14 @@ class DoctorResponse(BaseModel):
 
 class HorarioCreate(BaseModel):
     doctor_id: int
-    dia_semana: int = Field(..., ge=0, le=6)
+    fecha: date
+    hora_inicio: time
+    hora_fin: time
+
+
+class HorarioLoteCreate(BaseModel):
+    doctor_id: int
+    fechas: list[date] = Field(..., min_length=1)
     hora_inicio: time
     hora_fin: time
 
@@ -147,7 +162,7 @@ class HorarioCreate(BaseModel):
 class HorarioResponse(BaseModel):
     id: int
     doctor_id: int
-    dia_semana: int
+    fecha: date
     hora_inicio: time
     hora_fin: time
     activo: bool

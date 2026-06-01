@@ -65,12 +65,17 @@ export const doctores = {
 export const administrativos = {
   crear: (data) => request("/administrativos/", { method: "POST", body: JSON.stringify(data) }),
   listar: () => request("/administrativos/"),
+  actualizar: (id, data) => request(`/administrativos/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  activar: (id) => request(`/administrativos/${id}/activar`, { method: "PATCH" }),
   eliminar: (id) => request(`/administrativos/${id}`, { method: "DELETE" }),
 };
 
 export const horarios = {
   crear: (data) => request("/horarios/", { method: "POST", body: JSON.stringify(data) }),
+  crearLote: (data) => request("/horarios/lote", { method: "POST", body: JSON.stringify(data) }),
   porDoctor: (doctorId) => request(`/horarios/doctor/${doctorId}`),
+  actualizar: (id, data) => request(`/horarios/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  desactivar: (id) => request(`/horarios/${id}`, { method: "DELETE" }),
 };
 
 export const citas = {

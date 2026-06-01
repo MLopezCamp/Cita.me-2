@@ -14,6 +14,7 @@ from dependencies import get_current_user, require_role, require_any_role
 from models import ParteMedico, Cita
 from schemas import ParteMedicoCreate, ParteMedicoResponse
 from messaging.producer import publish_event
+from middleware.request_id import get_request_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/partes-medicos", tags=["Partes Medicos"])
@@ -75,7 +76,7 @@ async def crear_parte_medico(
         "parte_id": parte.id,
         "cita_id": parte.cita_id,
         "doctor_id": parte.doctor_id,
-    })
+    }, request_id=get_request_id())
 
     logger.info("[PARTE_MEDICO] Dr.#%s registro parte para cita #%s", doctor_id, data.cita_id)
     return parte

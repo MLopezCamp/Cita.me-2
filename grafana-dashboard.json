@@ -21,19 +21,10 @@
         "targets": [{
           "expr": "{container=\"citame-backend\"} | json | request_id=\"$request_id\" |~ \"Cita.*creada\""
         }],
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0}
       },
       {
-        "title": "🟠 RabbitMQ: Mensaje Enviado",
-        "type": "logs",
-        "datasource": {"type": "loki", "uid": "loki"},
-        "targets": [{
-          "expr": "{container=\"citame-backend\"} | json | request_id=\"$request_id\" |~ \"Mensaje enviado\""
-        }],
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
-      },
-      {
-        "title": "🟢 Worker: Evento Procesado",
+        "title": "Worker: Evento Procesado",
         "type": "logs",
         "datasource": {"type": "loki", "uid": "loki"},
         "targets": [{

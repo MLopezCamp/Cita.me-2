@@ -37,6 +37,12 @@ async def lifespan(app: FastAPI):
     logger.info("[INIT] Iniciando cita.me")
     await init_db()
     await init_redis()
+
+    from database import AsyncSessionLocal
+    from seed_data import seed_if_empty
+    async with AsyncSessionLocal() as session:
+        await seed_if_empty(session)
+
     logger.info("[INIT] cita.me listo")
     yield
     logger.info("[SHUTDOWN] Apagando cita.me")

@@ -1,11 +1,17 @@
-.PHONY: help up down build logs ps clean restart status test \
+.PHONY: help deploy up down build logs ps clean restart status test \
         grafana redis-cmd rabbitmq-ui portainer-ui \
         start stop pull update prod-logs prod-ps prod-status
 
 PROD = docker compose -f docker-compose.prod.yml
 
 help:
-	@echo "cita.me — Comandos disponibles:"
+	@echo ""
+	@echo "  ┌─────────────────────────────────────────────────┐"
+	@echo "  │  cita.me — Sistema de Citas Medicas             │"
+	@echo "  └─────────────────────────────────────────────────┘"
+	@echo ""
+	@echo "  DESPLIEGUE RAPIDO (primera vez o maquina nueva):"
+	@echo "    make deploy      — Un solo comando: configura, construye y levanta todo"
 	@echo ""
 	@echo "  Desarrollo (construye desde codigo local):"
 	@echo "    make up          — Levantar TODO el stack"
@@ -17,22 +23,33 @@ help:
 	@echo "    make status      — Estado + URLs de acceso"
 	@echo "    make test        — Test de salud de servicios"
 	@echo "    make clean       — Limpieza nuclear (contenedores + volumenes)"
-	@echo "    make clean-all   — Limpieza total + imagenes huerfanas"
 	@echo ""
-	@echo "  Produccion (imagenes pre-construidas desde Docker Hub):"
-	@echo "    make start      — Descargar imagenes y levantar el stack"
-	@echo "    make stop       — Detener el stack de produccion"
-	@echo "    make pull       — Solo descargar las imagenes mas recientes"
-	@echo "    make update     — Actualizar imagenes y reiniciar"
-	@echo "    make prod-logs  — Ver logs del stack de produccion"
-	@echo "    make prod-ps    — Estado de contenedores de produccion"
-	@echo "    make prod-status — Estado + URLs de acceso (produccion)"
+	@echo "  Produccion (imagenes desde Docker Hub):"
+	@echo "    make start       — Descargar imagenes y levantar el stack"
+	@echo "    make stop        — Detener el stack de produccion"
+	@echo "    make update      — Actualizar imagenes y reiniciar"
+	@echo "    make prod-logs   — Ver logs del stack de produccion"
 	@echo ""
 	@echo "  Navegador:"
-	@echo "    make grafana     — Abrir Grafana"
-	@echo "    make redis-cmd   — Abrir Redis Commander"
-	@echo "    make rabbitmq-ui — Abrir RabbitMQ Management"
-	@echo "    make portainer-ui— Abrir Portainer"
+	@echo "    make grafana      — Abrir Grafana  (admin / citame2024)"
+	@echo "    make redis-cmd    — Abrir Redis Commander"
+	@echo "    make rabbitmq-ui  — Abrir RabbitMQ  (guest / guest)"
+	@echo "    make portainer-ui — Abrir Portainer"
+	@echo ""
+
+deploy:
+	@echo ""
+	@echo "  cita.me — Despliegue limpio"
+	@echo ""
+	@test -f .env || (cp .env.example .env && echo "  [OK] .env creado desde .env.example")
+	@test -f .env && echo "  [OK] .env encontrado"
+	docker compose down -v --remove-orphans 2>/dev/null || true
+	docker compose up -d --build
+	@echo ""
+	@echo "  Esperando que los servicios esten listos..."
+	@sleep 8
+	$(MAKE) test
+	$(MAKE) status
 
 up:
 	docker compose up -d --build
@@ -121,8 +138,11 @@ pull:
 	$(PROD) pull
 
 start:
+	@test -f .env || (cp .env.example .env && echo "  [OK] .env creado desde .env.example")
 	$(PROD) pull
 	$(PROD) up -d
+	@echo "  Esperando que los servicios esten listos..."
+	@sleep 8
 	$(MAKE) prod-status
 
 stop:

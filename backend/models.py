@@ -1,7 +1,7 @@
 """Modelos ORM — definicion de tablas."""
 from datetime import date, time, datetime
 from typing import Optional
-from sqlalchemy import String, Integer, ForeignKey, Date, Time, Boolean, Text, DateTime
+from sqlalchemy import String, Integer, ForeignKey, Date, Time, Boolean, Text, DateTime, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database import Base
 
@@ -90,7 +90,7 @@ class Horario(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     doctor_id: Mapped[int] = mapped_column(Integer, ForeignKey("doctores.id"), nullable=False)
-    dia_semana: Mapped[int] = mapped_column(Integer, nullable=False)  # 0=lunes, 6=domingo
+    fecha: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     hora_inicio: Mapped[time] = mapped_column(Time, nullable=False)
     hora_fin: Mapped[time] = mapped_column(Time, nullable=False)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)

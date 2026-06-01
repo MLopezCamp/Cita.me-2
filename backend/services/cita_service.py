@@ -12,9 +12,6 @@ from messaging.producer import publish_event
 
 logger = logging.getLogger("api.citas")
 
-DIAS_SEMANA = ["Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado", "Domingo"]
-
-
 def _lock_key(doctor_id: int, fecha: date, hora: time) -> str:
     return f"cita:doctor_{doctor_id}:fecha_{fecha}:hora_{hora}"
 
@@ -50,11 +47,10 @@ async def crear_cita(session: AsyncSession, data: CitaCreate, request_id: str = 
         if not paciente:
             raise ValueError("El paciente no existe")
 
-        dia_semana = data.fecha.weekday()
         stmt_horario = select(Horario).where(
             and_(
                 Horario.doctor_id == data.doctor_id,
-                Horario.dia_semana == dia_semana,
+                Horario.fecha == data.fecha,
                 Horario.activo == True,
                 Horario.hora_inicio <= data.hora,
                 Horario.hora_fin > data.hora,
@@ -64,7 +60,7 @@ async def crear_cita(session: AsyncSession, data: CitaCreate, request_id: str = 
         horario = resultado.scalar_one_or_none()
 
         if not horario:
-            raise ValueError(f"El doctor no atiende los {DIAS_SEMANA[dia_semana]} a las {data.hora}")
+            raise ValueError(f"El doctor no tiene horario habilitado el {data.fecha} a las {data.hora}")
 
         stmt_conflicto = select(Cita).where(
             and_(
@@ -190,12 +186,10 @@ async def obtener_disponibles(session: AsyncSession, doctor_id: int, fecha: date
     if cached is not None:
         return cached
 
-    dia_semana = fecha.weekday()
-
     stmt_horarios = select(Horario).where(
         and_(
             Horario.doctor_id == doctor_id,
-            Horario.dia_semana == dia_semana,
+            Horario.fecha == fecha,
             Horario.activo == True,
         )
     )

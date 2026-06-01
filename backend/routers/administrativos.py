@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_session
 from dependencies import get_current_user, require_role
 from models import Administrativo, Cita, Doctor, Paciente
-from schemas import AdministrativoCreate, AdministrativoResponse
+from schemas import AdministrativoCreate, AdministrativoResponse, AdministrativoUpdate
 from security import get_password_hash
 
 logger = logging.getLogger(__name__)
@@ -79,7 +79,7 @@ async def obtener_administrativo(
 @router.put("/{admin_id}", response_model=AdministrativoResponse)
 async def actualizar_administrativo(
     admin_id: int,
-    data: AdministrativoCreate,
+    data: AdministrativoUpdate,
     session: AsyncSession = Depends(get_session),
     user: dict = Depends(require_role("admin")),
 ):
@@ -122,6 +122,24 @@ async def desactivar_administrativo(
 
     logger.info("[ADMIN] Desactivado administrativo #%s", admin_id)
     return {"mensaje": "Administrativo desactivado exitosamente", "id": admin_id}
+
+
+@router.patch("/{admin_id}/activar", response_model=AdministrativoResponse)
+async def activar_administrativo(
+    admin_id: int,
+    session: AsyncSession = Depends(get_session),
+    user: dict = Depends(require_role("admin")),
+):
+    """Reactivar un administrativo desactivado. Solo admin."""
+    admin = await session.get(Administrativo, admin_id)
+    if not admin:
+        raise HTTPException(status_code=404, detail="Administrativo no encontrado")
+
+    admin.activo = True
+    await session.flush()
+
+    logger.info("[ADMIN] Reactivado administrativo #%s", admin_id)
+    return admin
 
 
 # =============================================================================

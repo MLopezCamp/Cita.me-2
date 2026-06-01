@@ -8,12 +8,16 @@ Uso:
     from seed_data import seed_all
     await seed_all(session)
 """
-from datetime import date, datetime
+from datetime import date, time, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import Paciente, Doctor, Administrativo
+from models import Paciente, Doctor, Administrativo, Horario
 from security import get_password_hash
+
+
+def _fecha_futura(dias: int) -> date:
+    return date.today() + timedelta(days=dias)
 
 
 async def seed_all(session: AsyncSession):
@@ -23,8 +27,7 @@ async def seed_all(session: AsyncSession):
     # PACIENTES
     # ==========================================================================
     stmt = select(Paciente).where(Paciente.documento == "1001234567")
-    result = await session.execute(stmt)
-    if not result.scalar_one_or_none():
+    if not (await session.execute(stmt)).scalar_one_or_none():
         pacientes = [
             Paciente(
                 nombre="Juan",
@@ -53,6 +56,15 @@ async def seed_all(session: AsyncSession):
                 fecha_nacimiento=date(1995, 3, 10),
                 password_hash=get_password_hash("1234"),
             ),
+            Paciente(
+                nombre="Mateo",
+                apellido="Lopez",
+                documento="20999888",
+                email="mlopez@cotecnova.edu.co",
+                telefono="300777666",
+                fecha_nacimiento=date(2010, 11, 11),
+                password_hash=get_password_hash("1234"),
+            ),
         ]
         for p in pacientes:
             session.add(p)
@@ -62,8 +74,7 @@ async def seed_all(session: AsyncSession):
     # DOCTORES
     # ==========================================================================
     stmt = select(Doctor).where(Doctor.email == "maria.gonzalez@medicita.com")
-    result = await session.execute(stmt)
-    if not result.scalar_one_or_none():
+    if not (await session.execute(stmt)).scalar_one_or_none():
         doctores = [
             Doctor(
                 nombre="Maria",
@@ -95,14 +106,14 @@ async def seed_all(session: AsyncSession):
         ]
         for d in doctores:
             session.add(d)
+        await session.flush()
         print("[SEED] Doctores creados")
 
     # ==========================================================================
-    # ADMINISTRATIVOS (NUEVO)
+    # ADMINISTRATIVOS
     # ==========================================================================
     stmt = select(Administrativo).where(Administrativo.email == "carlos@admin.com")
-    result = await session.execute(stmt)
-    if not result.scalar_one_or_none():
+    if not (await session.execute(stmt)).scalar_one_or_none():
         administrativos = [
             Administrativo(
                 nombre="Carlos",
@@ -125,13 +136,33 @@ async def seed_all(session: AsyncSession):
             session.add(a)
         print("[SEED] Administrativos creados")
 
+    # ==========================================================================
+    # HORARIOS — fechas futuras relativas a hoy
+    # Doctor 2 (Pedro Martinez, Dermatologia): horarios de manana 08-12
+    # ==========================================================================
+    stmt = select(Horario).where(Horario.doctor_id == 2)
+    if not (await session.execute(stmt)).scalars().first():
+        horarios = [
+            Horario(doctor_id=2, fecha=_fecha_futura(1),  hora_inicio=time(8, 0), hora_fin=time(12, 0), activo=True),
+            Horario(doctor_id=2, fecha=_fecha_futura(3),  hora_inicio=time(8, 0), hora_fin=time(12, 0), activo=True),
+            Horario(doctor_id=2, fecha=_fecha_futura(5),  hora_inicio=time(8, 0), hora_fin=time(12, 0), activo=True),
+            Horario(doctor_id=2, fecha=_fecha_futura(8),  hora_inicio=time(8, 0), hora_fin=time(12, 0), activo=True),
+            Horario(doctor_id=2, fecha=_fecha_futura(10), hora_inicio=time(8, 0), hora_fin=time(12, 0), activo=True),
+            Horario(doctor_id=3, fecha=_fecha_futura(2),  hora_inicio=time(9, 0), hora_fin=time(13, 0), activo=True),
+            Horario(doctor_id=3, fecha=_fecha_futura(7),  hora_inicio=time(9, 0), hora_fin=time(13, 0), activo=True),
+            Horario(doctor_id=1, fecha=_fecha_futura(4),  hora_inicio=time(7, 0), hora_fin=time(11, 0), activo=True),
+            Horario(doctor_id=1, fecha=_fecha_futura(9),  hora_inicio=time(7, 0), hora_fin=time(11, 0), activo=True),
+        ]
+        for h in horarios:
+            session.add(h)
+        print("[SEED] Horarios creados")
+
     await session.commit()
     print("[SEED] Datos de prueba listos")
 
 
 async def seed_if_empty(session: AsyncSession):
     """Verifica si la BD esta vacia y ejecuta el seed."""
-    from models import Paciente
     stmt = select(Paciente)
     result = await session.execute(stmt)
     if len(result.scalars().all()) == 0:
@@ -158,7 +189,7 @@ async def reset_passwords(session: AsyncSession):
             a.password_hash = hash_1234
             print(f"[RESET] Administrativo {email}")
 
-    for doc in ["1001234567", "1007654321", "1009876543"]:
+    for doc in ["1001234567", "1007654321", "1009876543", "20999888"]:
         result = await session.execute(select(Paciente).where(Paciente.documento == doc))
         p = result.scalar_one_or_none()
         if p:

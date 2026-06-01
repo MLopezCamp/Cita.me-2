@@ -5,13 +5,14 @@ Procesa eventos de citas, partes medicos y horarios.
 import json
 import asyncio
 import logging
-from datetime import date
+from datetime import date, timedelta
 
 import aio_pika
 from sqlalchemy import select, and_
 
 from config import RABBITMQ_URL, EXCHANGE_CITAS, QUEUE_CITAS
 from database import AsyncSessionLocal
+from middleware.request_id import request_id_var
 from models import Cita, Doctor, Paciente, ParteMedico
 from messaging.email_service import (
     send_cita_creada,
@@ -22,7 +23,6 @@ from messaging.email_service import (
 
 logger = logging.getLogger("rabbitmq.worker")
 
-# La cola existente escucha cita.# — agregamos bindings adicionales
 EXTRA_ROUTING_KEYS = ["parte_medico.#", "horario.#"]
 
 
@@ -56,6 +56,7 @@ async def _process_message(message: aio_pika.IncomingMessage):
             body = json.loads(message.body.decode("utf-8"))
             routing_key = message.routing_key
             request_id = body.get("request_id", "-")
+            request_id_var.set(request_id)
 
             logger.info(
                 "[WORKER] [%s] Evento: %s — payload: %s",
@@ -68,8 +69,8 @@ async def _process_message(message: aio_pika.IncomingMessage):
                 await _handle_cita_estado_actualizado(body, request_id)
             elif routing_key == "parte_medico.creado":
                 await _handle_parte_medico_creado(body, request_id)
-            elif routing_key == "horario.nuevo":
-                await _handle_horario_nuevo(body, request_id)
+            elif routing_key in ("horario.nuevo", "horario.lote_nuevo"):
+                await _handle_horario_lote_nuevo(body, request_id)
             else:
                 await asyncio.sleep(0.1)
 
@@ -116,7 +117,7 @@ async def _handle_cita_estado_actualizado(body: dict, request_id: str):
         return
 
     # Solo notificar estados relevantes para el paciente
-    if nuevo_estado not in ("confirmada", "cancelada", "completada"):
+    if nuevo_estado not in ("confirmada", "cancelada"):
         return
 
     async with AsyncSessionLocal() as session:
@@ -184,13 +185,30 @@ async def _handle_parte_medico_creado(body: dict, request_id: str):
     logger.info("[WORKER] [%s] Email de cita completada enviado — cita #%s", request_id, cita_id)
 
 
-async def _handle_horario_nuevo(body: dict, request_id: str):
+async def _handle_horario_lote_nuevo(body: dict, request_id: str):
+    """
+    Notifica a pacientes con citas pendientes/confirmadas en la especialidad
+    sobre nuevos horarios disponibles.
+    Regla: solo se notifica al paciente sobre fechas que esten al menos 3 dias
+    despues de su proxima cita (evita ruido cuando el slot es demasiado cercano).
+    """
     doctor_id = body.get("doctor_id")
-    dia_semana = body.get("dia_semana")
+    fechas_raw = body.get("fechas", [])
     hora_inicio = body.get("hora_inicio")
     hora_fin = body.get("hora_fin")
 
-    if not doctor_id:
+    if not doctor_id or not fechas_raw:
+        return
+
+    # Parsear fechas del evento
+    nuevas_fechas: list[date] = []
+    for f in fechas_raw:
+        try:
+            nuevas_fechas.append(date.fromisoformat(str(f)))
+        except Exception:
+            pass
+
+    if not nuevas_fechas:
         return
 
     hoy = date.today()
@@ -200,7 +218,7 @@ async def _handle_horario_nuevo(body: dict, request_id: str):
         if not doctor:
             return
 
-        # Pacientes con citas pendientes/confirmadas en la especialidad, con fecha futura
+        # Pacientes con citas futuras pendientes/confirmadas en la misma especialidad
         stmt = (
             select(Cita, Paciente)
             .join(Doctor, Cita.doctor_id == Doctor.id)
@@ -212,27 +230,38 @@ async def _handle_horario_nuevo(body: dict, request_id: str):
                     Cita.fecha >= hoy,
                 )
             )
+            .order_by(Cita.fecha)
         )
         rows = (await session.execute(stmt)).all()
 
-        # Deduplicar por paciente (un paciente puede tener varias citas en esa especialidad)
-        pacientes_notificados: set[int] = set()
+        # Por cada paciente, guardar su cita mas proxima
+        paciente_proxima_cita: dict[int, tuple[date, Paciente]] = {}
         for cita, paciente in rows:
-            if paciente.id in pacientes_notificados:
+            if paciente.id not in paciente_proxima_cita:
+                paciente_proxima_cita[paciente.id] = (cita.fecha, paciente)
+
+        pacientes_notificados = 0
+        for paciente_id, (cita_fecha, paciente) in paciente_proxima_cita.items():
+            # Solo incluir fechas que sean >= cita_del_paciente + 3 dias
+            fechas_aplicables = [
+                f for f in nuevas_fechas
+                if f >= cita_fecha + timedelta(days=3)
+            ]
+            if not fechas_aplicables:
                 continue
-            pacientes_notificados.add(paciente.id)
 
             await send_nuevos_horarios(
                 paciente_email=paciente.email,
                 paciente_nombre=f"{paciente.nombre} {paciente.apellido}",
                 especialidad=doctor.especialidad,
                 doctor_nombre=f"Dr. {doctor.nombre} {doctor.apellido}",
-                dia_semana=dia_semana,
+                fechas=[str(f) for f in sorted(fechas_aplicables)],
                 hora_inicio=str(hora_inicio),
                 hora_fin=str(hora_fin),
             )
+            pacientes_notificados += 1
 
     logger.info(
-        "[WORKER] [%s] Notificaciones de horario nuevo enviadas — doctor #%s, %d pacientes",
-        request_id, doctor_id, len(pacientes_notificados),
+        "[WORKER] [%s] Notificaciones de horarios enviadas — doctor #%s, %d fechas, %d pacientes",
+        request_id, doctor_id, len(nuevas_fechas), pacientes_notificados,
     )

@@ -3,12 +3,12 @@ PRUEBA DE COMUNICACIÓN ASÍNCRONA — RabbitMQ
 ============================================
 
 Ejecutar con RabbitMQ corriendo:
-    python test_rabbitmq.py
+    docker compose exec backend python test_rabbitmq.py
 
 Demuestra:
-- Publicación de eventos a un exchange topic
+- Publicacion de eventos a un exchange topic
 - Consumo concurrente con prefetch_count
-- Comunicación entre procesos (producer → consumer)
+- Routing keys del sistema: cita.#, parte_medico.#, horario.#
 """
 import asyncio
 import json
@@ -23,10 +23,10 @@ import aio_pika
 
 
 async def test_publicacion_consumo():
-    """Publicar eventos y verificar que se consumen correctamente."""
-    print("=" * 50)
-    print("  PRUEBA DE RABBITMQ — COMUNICACIÓN ASÍNRONA")
-    print("=" * 50)
+    """Publicar eventos de todos los tipos y verificar que se consumen correctamente."""
+    print("=" * 55)
+    print("  PRUEBA DE RABBITMQ — COMUNICACION ASINCRONA")
+    print("=" * 55)
 
     eventos_publicados = []
     eventos_consumidos = []
@@ -35,15 +35,14 @@ async def test_publicacion_consumo():
     print("\n[1] Conectando a RabbitMQ...")
     connection = await aio_pika.connect_robust(RABBITMQ_URL)
     channel = await connection.channel()
-
-    # Prefetch = 3: procesar hasta 3 mensajes concurrentemente
     await channel.set_qos(prefetch_count=3)
 
-    # Declarar exchange y cola
     exchange = await channel.declare_exchange(EXCHANGE_CITAS, aio_pika.ExchangeType.TOPIC, durable=True)
     queue = await channel.declare_queue(QUEUE_CITAS, durable=True)
     await queue.bind(exchange, routing_key="cita.#")
-    print("    ✓ Conexión establecida, exchange y cola declarados")
+    await queue.bind(exchange, routing_key="parte_medico.#")
+    await queue.bind(exchange, routing_key="horario.#")
+    print("    OK Conexion establecida — exchange y bindings declarados")
 
     # ── 2. Consumidor ──
     print("\n[2] Iniciando consumer...")
@@ -52,106 +51,106 @@ async def test_publicacion_consumo():
         async with message.process():
             body = json.loads(message.body.decode())
             routing_key = message.routing_key
-            eventos_consumidos.append(body)
-
-            # Simular procesamiento async (notificación, estadísticas)
-            await asyncio.sleep(0.1)
-            print(f"    [CONSUMER] {routing_key}: {body.get('cita_id', 'N/A')} — {body.get('tipo', '')}")
+            eventos_consumidos.append({"routing_key": routing_key, **body})
+            await asyncio.sleep(0.05)
+            print(f"    [CONSUMER] {routing_key}: {json.dumps(body)[:60]}")
 
     await queue.consume(on_message)
-    await asyncio.sleep(0.5)  # Dar tiempo al consumer a registrarse
-    print("    ✓ Consumer registrado con prefetch_count=3")
+    await asyncio.sleep(0.5)
+    print("    OK Consumer registrado con prefetch_count=3")
 
-    # ── 3. Publicar eventos ──
-    print("\n[3] Publicando eventos...")
+    # ── 3. Publicar eventos de todos los tipos ──
+    print("\n[3] Publicando eventos del sistema...")
     eventos_test = [
-        {"routing_key": "cita.creada", "data": {"cita_id": 1, "tipo": "nueva_reserva", "paciente_id": 10}},
-        {"routing_key": "cita.creada", "data": {"cita_id": 2, "tipo": "nueva_reserva", "paciente_id": 11}},
-        {"routing_key": "cita.estado_actualizado", "data": {"cita_id": 1, "tipo": "confirmacion", "nuevo_estado": "confirmada"}},
-        {"routing_key": "cita.creada", "data": {"cita_id": 3, "tipo": "nueva_reserva", "paciente_id": 12}},
-        {"routing_key": "cita.cancelada", "data": {"cita_id": 2, "tipo": "cancelacion", "motivo": "paciente_no_asistio"}},
-        {"routing_key": "cita.estado_actualizado", "data": {"cita_id": 3, "tipo": "completada", "nuevo_estado": "completada"}},
+        # Citas
+        ("cita.creada",            {"cita_id": 1, "paciente_id": 4, "doctor_id": 2, "fecha": "2026-08-01", "hora": "08:00"}),
+        ("cita.creada",            {"cita_id": 2, "paciente_id": 1, "doctor_id": 3, "fecha": "2026-08-02", "hora": "09:00"}),
+        ("cita.estado_actualizado",{"cita_id": 1, "nuevo_estado": "confirmada", "estado_anterior": "pendiente"}),
+        ("cita.estado_actualizado",{"cita_id": 2, "nuevo_estado": "cancelada",  "estado_anterior": "pendiente"}),
+        # Parte medico
+        ("parte_medico.creado",    {"cita_id": 1, "doctor_id": 2, "diagnostico": "Dermatitis leve"}),
+        # Horarios lote (uno o varios dias)
+        ("horario.lote_nuevo",     {"doctor_id": 2, "fechas": ["2026-08-10", "2026-08-11", "2026-08-12"], "hora_inicio": "08:00:00", "hora_fin": "12:00:00"}),
+        ("horario.lote_nuevo",     {"doctor_id": 3, "fechas": ["2026-08-15"], "hora_inicio": "09:00:00", "hora_fin": "13:00:00"}),
     ]
 
-    for evt in eventos_test:
-        message = aio_pika.Message(
-            body=json.dumps(evt["data"]).encode("utf-8"),
+    for rk, data in eventos_test:
+        msg = aio_pika.Message(
+            body=json.dumps(data).encode("utf-8"),
             delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
             content_type="application/json",
         )
-        await exchange.publish(message, routing_key=evt["routing_key"])
-        eventos_publicados.append(evt["data"])
-        print(f"    [PRODUCER] {evt['routing_key']}: {evt['data'].get('cita_id', 'N/A')}")
+        await exchange.publish(msg, routing_key=rk)
+        eventos_publicados.append(data)
+        print(f"    [PRODUCER] {rk}")
 
     # ── 4. Esperar consumo ──
     print(f"\n[4] Esperando consumo de {len(eventos_test)} eventos...")
-    await asyncio.sleep(2)  # Tiempo para que el consumer procese
+    await asyncio.sleep(2)
 
     # ── 5. Verificar ──
     print(f"\n[5] Resultados:")
-    print(f"    Eventos publicados: {len(eventos_publicados)}")
-    print(f"    Eventos consumidos: {len(eventos_consumidos)}")
+    print(f"    Publicados: {len(eventos_publicados)}")
+    print(f"    Consumidos: {len(eventos_consumidos)}")
 
     if len(eventos_consumidos) == len(eventos_publicados):
-        print("\n    ✓ PASS: Todos los eventos fueron consumidos correctamente")
-        print("    ✓ Comunicación async funcionando entre producer y consumer")
+        print("\n    PASS: Todos los eventos fueron consumidos correctamente")
     else:
-        print(f"\n    ⚠ {len(eventos_publicados) - len(eventos_consumidos)} eventos no fueron consumidos")
-        print("    (Puede requerir más tiempo de espera)")
+        pendientes = len(eventos_publicados) - len(eventos_consumidos)
+        print(f"\n    AVISO: {pendientes} eventos pendientes (pueden estar en cola del worker)")
 
-    # ── 6. Prueba de concurrencia de consumo ──
+    # ── 6. Prueba de consumo concurrente ──
     print(f"\n[6] Prueba de consumo concurrente (prefetch=3)...")
-    batch_size = 10
-    print(f"    Publicando lote de {batch_size} eventos...")
-
+    batch_size = 12
     inicio = time.time()
+
     for i in range(batch_size):
-        data = {"cita_id": 100 + i, "tipo": f"batch_test_{i}"}
-        message = aio_pika.Message(
+        data = {"cita_id": 200 + i, "paciente_id": (i % 4) + 1, "tipo": f"batch_{i}"}
+        msg = aio_pika.Message(
             body=json.dumps(data).encode("utf-8"),
             delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
         )
-        await exchange.publish(message, routing_key="cita.creada")
+        await exchange.publish(msg, routing_key="cita.creada")
 
     consumidos_antes = len(eventos_consumidos)
     await asyncio.sleep(3)
     consumidos_despues = len(eventos_consumidos)
-
     duracion = round((time.time() - inicio) * 1000, 1)
     nuevos = consumidos_despues - consumidos_antes
-    print(f"    Consumidos en lote: {nuevos}/{batch_size} en {duracion}ms")
-    print(f"    (Con prefetch=3, se procesan hasta 3 en paralelo)")
 
-    # ── Cleanup ──
+    print(f"    Consumidos del lote: {nuevos}/{batch_size} en {duracion}ms")
+    print(f"    (Con prefetch=3 se procesan hasta 3 en paralelo)")
+
     await connection.close()
 
-    print("\n" + "=" * 50)
+    print("\n" + "=" * 55)
     print("  PRUEBA RABBITMQ FINALIZADA")
-    print("=" * 50)
+    print("=" * 55)
 
 
 async def test_routing_keys():
-    """Probar que el routing por topic funciona correctamente."""
-    print("\n\n" + "=" * 50)
+    """Verificar que el routing por topic funciona para todos los patrones del sistema."""
+    print("\n\n" + "=" * 55)
     print("  PRUEBA DE ROUTING KEYS — TOPIC EXCHANGE")
-    print("=" * 50)
+    print("=" * 55)
 
     connection = await aio_pika.connect_robust(RABBITMQ_URL)
     channel = await connection.channel()
     await channel.set_qos(prefetch_count=1)
 
-    exchange = await channel.declare_exchange("test.exchange", aio_pika.ExchangeType.TOPIC, durable=False)
+    exchange = await channel.declare_exchange("test.routing", aio_pika.ExchangeType.TOPIC, durable=False)
 
-    # Crear colas con diferentes routing patterns
-    cola_todos = await channel.declare_queue("test.todos", auto_delete=True)
-    cola_creadas = await channel.declare_queue("test.creadas", auto_delete=True)
-    cola_canceladas = await channel.declare_queue("test.canceladas", auto_delete=True)
+    cola_citas     = await channel.declare_queue("test.citas",     auto_delete=True)
+    cola_horarios  = await channel.declare_queue("test.horarios",  auto_delete=True)
+    cola_partes    = await channel.declare_queue("test.partes",    auto_delete=True)
+    cola_todo      = await channel.declare_queue("test.todo",      auto_delete=True)
 
-    await cola_todos.bind(exchange, routing_key="cita.#")
-    await cola_creadas.bind(exchange, routing_key="cita.creada")
-    await cola_canceladas.bind(exchange, routing_key="cita.cancelada")
+    await cola_citas.bind(exchange,    routing_key="cita.#")
+    await cola_horarios.bind(exchange, routing_key="horario.#")
+    await cola_partes.bind(exchange,   routing_key="parte_medico.#")
+    await cola_todo.bind(exchange,     routing_key="#")
 
-    recibidos = {"todos": [], "creadas": [], "canceladas": []}
+    recibidos = {"citas": [], "horarios": [], "partes": [], "todo": []}
 
     async def make_consumer(cola, key):
         async def handler(msg):
@@ -159,17 +158,18 @@ async def test_routing_keys():
                 recibidos[key].append(json.loads(msg.body.decode()))
         await cola.consume(handler)
 
-    await make_consumer(cola_todos, "todos")
-    await make_consumer(cola_creadas, "creadas")
-    await make_consumer(cola_canceladas, "canceladas")
+    await make_consumer(cola_citas,    "citas")
+    await make_consumer(cola_horarios, "horarios")
+    await make_consumer(cola_partes,   "partes")
+    await make_consumer(cola_todo,     "todo")
     await asyncio.sleep(0.3)
 
-    # Publicar eventos con diferentes routing keys
     tests = [
-        ("cita.creada", {"id": 1}),
-        ("cita.cancelada", {"id": 2}),
-        ("cita.estado_actualizado", {"id": 3}),
-        ("cita.creada", {"id": 4}),
+        ("cita.creada",             {"id": 1}),
+        ("cita.estado_actualizado", {"id": 2}),
+        ("cita.cancelada",          {"id": 3}),
+        ("horario.lote_nuevo",      {"id": 4}),
+        ("parte_medico.creado",     {"id": 5}),
     ]
 
     for rk, data in tests:
@@ -180,15 +180,16 @@ async def test_routing_keys():
     await asyncio.sleep(1)
 
     print(f"\n  Resultados del routing:")
-    print(f"    test.todos (cita.#):        {len(recibidos['todos'])} mensajes → {recibidos['todos']}")
-    print(f"    test.creadas (cita.creada): {len(recibidos['creadas'])} mensajes → {recibidos['creadas']}")
-    print(f"    test.canceladas (cita.cancelada): {len(recibidos['canceladas'])} mensajes → {recibidos['canceladas']}")
+    print(f"    cita.#         : {len(recibidos['citas'])} mensajes  (esperado 3)")
+    print(f"    horario.#      : {len(recibidos['horarios'])} mensajes  (esperado 1)")
+    print(f"    parte_medico.# : {len(recibidos['partes'])} mensajes  (esperado 1)")
+    print(f"    #              : {len(recibidos['todo'])} mensajes  (esperado 5)")
 
-    expected = {"todos": 4, "creadas": 2, "canceladas": 1}
-    if all(len(recibidos[k]) == v for k, v in expected.items()):
-        print("\n  ✓ PASS: Routing por topic funciona correctamente")
+    esperado = {"citas": 3, "horarios": 1, "partes": 1, "todo": 5}
+    if all(len(recibidos[k]) == v for k, v in esperado.items()):
+        print("\n  PASS: Routing por topic funciona correctamente")
     else:
-        print("\n  ✗ FAIL: El routing no coincide con lo esperado")
+        print("\n  FAIL: El routing no coincide con lo esperado")
 
     await connection.close()
 

@@ -101,7 +101,6 @@ async def send_cita_creada(
 LABELS_ESTADO = {
     "confirmada": ("Cita confirmada", "Su cita ha sido confirmada por el medico.", "#16a34a"),
     "cancelada": ("Cita cancelada", "Su cita ha sido cancelada.", "#dc2626"),
-    "completada": ("Cita completada", "Su cita ha sido marcada como completada.", "#2563eb"),
 }
 
 
@@ -233,7 +232,7 @@ async def send_cita_completada(
     html = f"""
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#f9fafb;padding:24px;">
       <div style="background:#ffffff;border-radius:8px;padding:32px;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
-        <h2 style="color:#1f2937;margin-top:0;">Resumen de su cita medica</h2>
+        <h2 style="color:#1f2937;margin-top:0;">Cita completada, resumen de su cita</h2>
         <p style="color:#6b7280;">Estimado/a <strong>{paciente_nombre}</strong>,</p>
         <p style="color:#6b7280;">Su cita ha sido completada. A continuacion encontrara el resumen.</p>
 
@@ -270,7 +269,7 @@ async def send_cita_completada(
         params: resend.Emails.SendParams = {
             "from": RESEND_FROM_EMAIL,
             "to": [paciente_email],
-            "subject":f"Resumen de su cita — {especialidad}",
+            "subject":f"Cita completada, resumen de su cita — {especialidad}",
             "html": html,
         }
         resend.Emails.send(params)
@@ -284,7 +283,7 @@ async def send_nuevos_horarios(
     paciente_nombre: str,
     especialidad: str,
     doctor_nombre: str,
-    dia_semana: int,
+    fechas: list[str],
     hora_inicio: str,
     hora_fin: str,
 ) -> None:
@@ -294,9 +293,17 @@ async def send_nuevos_horarios(
 
     resend.api_key = RESEND_API_KEY
 
-    dia_nombre = DIAS_SEMANA[dia_semana] if 0 <= dia_semana <= 6 else str(dia_semana)
     hora_inicio_fmt = hora_inicio[:5] if hora_inicio else hora_inicio
     hora_fin_fmt = hora_fin[:5] if hora_fin else hora_fin
+
+    filas_fechas = "".join(
+        f"""<tr>
+          <td style="padding:6px 0;border-bottom:1px solid #f3f4f6;">
+            <span style="color:#6b7280;">{_fecha_legible(f)} &mdash; {hora_inicio_fmt} a {hora_fin_fmt}</span>
+          </td>
+        </tr>"""
+        for f in fechas
+    )
 
     html = f"""
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#f9fafb;padding:24px;">
@@ -323,8 +330,10 @@ async def send_nuevos_horarios(
           </tr>
           <tr>
             <td style="padding:8px 0;">
-              <strong style="color:#374151;">Nuevo horario disponible</strong><br>
-              <span style="color:#6b7280;">{dia_nombre} de {hora_inicio_fmt} a {hora_fin_fmt}</span>
+              <strong style="color:#374151;">Fechas disponibles</strong>
+              <table style="width:100%;border-collapse:collapse;margin-top:6px;">
+                {filas_fechas}
+              </table>
             </td>
           </tr>
         </table>

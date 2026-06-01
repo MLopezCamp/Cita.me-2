@@ -115,33 +115,7 @@
         "prettifyLogMessage": false
       },
       "fieldConfig": { "defaults": {}, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 }
-    },
-    {
-      "id": 5,
-      "title": "RabbitMQ — Mensajería",
-      "description": "Publicación y consumo de eventos entre backend y worker.",
-      "type": "logs",
-      "datasource": { "type": "loki", "uid": "loki" },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "{container=~\"citame-backend|citame-worker\"} |= \"${request_id}\" |~ \"Mensaje enviado|Evento procesado|RABBITMQ|cita\\.\" | json"
-        }
-      ],
-      "options": {
-        "dedupStrategy": "none",
-        "enableLogDetails": true,
-        "showTime": true,
-        "showLabels": false,
-        "showCommonLabels": false,
-        "sortOrder": "Descending",
-        "wrapLogMessage": true,
-        "prettifyLogMessage": false
-      },
-      "fieldConfig": { "defaults": {}, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 }
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 20 }
     }
   ],
   "templating": {

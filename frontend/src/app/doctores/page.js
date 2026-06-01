@@ -32,10 +32,11 @@ export default function DoctoresPage() {
   });
 
   const [formHorario, setFormHorario] = useState({
-    doctor_id: "", dia_semana: "0", hora_inicio: "08:00", hora_fin: "12:00",
+    doctor_id: "", fechas: [""], hora_inicio: "08:00", hora_fin: "12:00",
   });
-
-  const DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+  const [editandoHorario, setEditandoHorario] = useState(null);
+  const [formEdit, setFormEdit] = useState({ fecha: "", hora_inicio: "", hora_fin: "" });
+  const [confirmandoHorarioId, setConfirmandoHorarioId] = useState(null);
 
   useEffect(() => {
     if (!user) return;
@@ -99,7 +100,9 @@ export default function DoctoresPage() {
 
   async function verHorarios(doctor) {
     setDoctorSeleccionado(doctor);
-    setFormHorario((f) => ({ ...f, doctor_id: doctor.id }));
+    setFormHorario({ doctor_id: doctor.id, fechas: [""], hora_inicio: "08:00", hora_fin: "12:00" });
+    setEditandoHorario(null);
+    setError("");
     try {
       const data = await horarios.porDoctor(doctor.id);
       setHorariosDoc(data);
@@ -109,23 +112,70 @@ export default function DoctoresPage() {
     setModalHorario(true);
   }
 
-  async function handleCrearHorario(e) {
+  async function handleCrearHorarios(e) {
     e.preventDefault();
     setEnviando(true);
     setError("");
+    const fechasValidas = formHorario.fechas.filter((f) => f.trim() !== "");
+    if (fechasValidas.length === 0) {
+      setError("Debe ingresar al menos una fecha.");
+      setEnviando(false);
+      return;
+    }
     try {
-      await horarios.crear({
+      await horarios.crearLote({
         doctor_id: parseInt(formHorario.doctor_id),
-        dia_semana: parseInt(formHorario.dia_semana),
+        fechas: fechasValidas,
         hora_inicio: formHorario.hora_inicio,
         hora_fin: formHorario.hora_fin,
       });
+      setFormHorario((f) => ({ ...f, fechas: [""] }));
       const data = await horarios.porDoctor(parseInt(formHorario.doctor_id));
       setHorariosDoc(data);
     } catch (err) {
       setError(err.message);
     } finally {
       setEnviando(false);
+    }
+  }
+
+  function abrirEdicion(h) {
+    setEditandoHorario(h);
+    setFormEdit({ fecha: h.fecha, hora_inicio: h.hora_inicio.slice(0, 5), hora_fin: h.hora_fin.slice(0, 5) });
+    setError("");
+  }
+
+  async function handleGuardarEdicion(e) {
+    e.preventDefault();
+    setEnviando(true);
+    setError("");
+    try {
+      await horarios.actualizar(editandoHorario.id, {
+        doctor_id: doctorSeleccionado.id,
+        fecha: formEdit.fecha,
+        hora_inicio: formEdit.hora_inicio,
+        hora_fin: formEdit.hora_fin,
+      });
+      setEditandoHorario(null);
+      const data = await horarios.porDoctor(doctorSeleccionado.id);
+      setHorariosDoc(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  async function handleEliminarHorario(id) {
+    setError("");
+    try {
+      await horarios.desactivar(id);
+      setConfirmandoHorarioId(null);
+      const data = await horarios.porDoctor(doctorSeleccionado.id);
+      setHorariosDoc(data);
+    } catch (err) {
+      setError(err.message);
+      setConfirmandoHorarioId(null);
     }
   }
 
@@ -297,30 +347,138 @@ export default function DoctoresPage() {
       </Modal>
 
       {/* Modal horarios */}
-      <Modal isOpen={modalHorario} onClose={() => setModalHorario(false)} title={`Horarios — Dr. ${doctorSeleccionado?.nombre} ${doctorSeleccionado?.apellido}`}>
+      <Modal isOpen={modalHorario} onClose={() => { setModalHorario(false); setEditandoHorario(null); setError(""); }} title={`Horarios — Dr. ${doctorSeleccionado?.nombre} ${doctorSeleccionado?.apellido}`}>
         <div className="space-y-4">
-          {horariosDoc.length > 0 && (
-            <div className="space-y-2">
+
+          {/* Lista de horarios existentes */}
+          {horariosDoc.length > 0 ? (
+            <div className="space-y-1">
               {horariosDoc.map((h) => (
-                <div key={h.id} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg text-sm">
-                  <span className="font-medium text-gray-700">{DIAS[h.dia_semana]}</span>
-                  <span className="text-gray-500">{h.hora_inicio} — {h.hora_fin}</span>
+                <div key={h.id} className="rounded-lg overflow-hidden">
+                  {/* Fila principal */}
+                  <div className={`flex items-center gap-2 px-3 py-2 text-sm group ${editandoHorario?.id === h.id ? "bg-brand-50 border border-brand-200 rounded-t-lg border-b-0" : "bg-gray-50"}`}>
+                    <span className="font-medium text-gray-700 tabular-nums w-28 shrink-0">
+                      {h.hora_inicio.slice(0, 5)} — {h.hora_fin.slice(0, 5)}
+                    </span>
+                    <span className="text-gray-400 text-xs flex-1">{h.fecha}</span>
+                    {editandoHorario?.id !== h.id && (
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <button onClick={() => { setConfirmandoHorarioId(null); abrirEdicion(h); }} title="Editar"
+                          className="p-1 text-gray-400 hover:text-brand-600 transition-colors">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+                          </svg>
+                        </button>
+                        {confirmandoHorarioId === h.id ? (
+                          <span className="flex items-center gap-1 text-xs">
+                            <span className="text-gray-400">¿Eliminar?</span>
+                            <button onClick={() => handleEliminarHorario(h.id)} className="text-red-500 font-semibold hover:underline">Si</button>
+                            <button onClick={() => setConfirmandoHorarioId(null)} className="text-gray-400 hover:underline">No</button>
+                          </span>
+                        ) : (
+                          <button onClick={() => { setEditandoHorario(null); setConfirmandoHorarioId(h.id); }} title="Eliminar"
+                            className="p-1 text-gray-400 hover:text-red-500 transition-colors">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {editandoHorario?.id === h.id && (
+                      <button type="button" onClick={() => { setEditandoHorario(null); setError(""); }}
+                        className="text-xs text-gray-400 hover:text-gray-600 shrink-0 ml-auto">
+                        Cancelar
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Panel de edicion expandible */}
+                  {editandoHorario?.id === h.id && (
+                    <form onSubmit={handleGuardarEdicion}
+                      className="px-3 py-3 bg-brand-50 border border-brand-200 border-t-0 rounded-b-lg space-y-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Fecha</label>
+                        <input type="date" value={formEdit.fecha}
+                          onChange={(e) => setFormEdit({ ...formEdit, fecha: e.target.value })}
+                          required className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-brand-500 bg-white" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Desde</label>
+                          <input type="time" value={formEdit.hora_inicio}
+                            onChange={(e) => setFormEdit({ ...formEdit, hora_inicio: e.target.value })}
+                            required className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-brand-500 bg-white" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Hasta</label>
+                          <input type="time" value={formEdit.hora_fin}
+                            onChange={(e) => setFormEdit({ ...formEdit, hora_fin: e.target.value })}
+                            required className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-brand-500 bg-white" />
+                        </div>
+                      </div>
+                      <button type="submit" disabled={enviando}
+                        className="w-full py-1.5 bg-brand-600 text-white rounded text-xs font-medium hover:bg-brand-700 transition-colors disabled:opacity-50">
+                        {enviando ? "Guardando..." : "Guardar cambios"}
+                      </button>
+                    </form>
+                  )}
                 </div>
               ))}
             </div>
+          ) : (
+            <p className="text-sm text-gray-400 text-center py-4">Sin horarios asignados</p>
           )}
-          {horariosDoc.length === 0 && <p className="text-sm text-gray-400 text-center py-4">Sin horarios asignados</p>}
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
           <hr className="border-gray-100" />
 
-          <form onSubmit={handleCrearHorario} className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Día</label>
-              <select value={formHorario.dia_semana} onChange={(e) => setFormHorario({ ...formHorario, dia_semana: e.target.value })}
-                className={inputClass}>
-                {DIAS.map((d, i) => <option key={i} value={i}>{d}</option>)}
-              </select>
+          {/* Formulario creacion multifecha */}
+          <form onSubmit={handleCrearHorarios} className="space-y-3">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Agregar fechas</p>
+
+            <div className="space-y-2">
+              {formHorario.fechas.map((fecha, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={fecha}
+                    onChange={(e) => {
+                      const nuevas = [...formHorario.fechas];
+                      nuevas[idx] = e.target.value;
+                      setFormHorario({ ...formHorario, fechas: nuevas });
+                    }}
+                    required
+                    min={new Date().toISOString().split("T")[0]}
+                    className={inputClass + " flex-1"}
+                  />
+                  {formHorario.fechas.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setFormHorario({ ...formHorario, fechas: formHorario.fechas.filter((_, i) => i !== idx) })}
+                      className="p-1.5 text-gray-300 hover:text-red-400 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
+
+            <button
+              type="button"
+              onClick={() => setFormHorario({ ...formHorario, fechas: [...formHorario.fechas, ""] })}
+              className="flex items-center gap-1.5 text-sm text-brand-600 hover:text-brand-700 font-medium"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              Agregar otra fecha
+            </button>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Desde</label>
@@ -333,9 +491,9 @@ export default function DoctoresPage() {
                   className={inputClass} />
               </div>
             </div>
-            {error && <p className="text-sm text-red-600">{error}</p>}
+
             <button type="submit" disabled={enviando} className="w-full py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 transition-colors disabled:opacity-50">
-              Agregar Horario
+              {enviando ? "Guardando..." : `Agregar ${formHorario.fechas.filter(f => f).length > 1 ? `${formHorario.fechas.filter(f => f).length} fechas` : "horario"}`}
             </button>
           </form>
         </div>

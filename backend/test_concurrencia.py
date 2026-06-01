@@ -9,7 +9,7 @@ import sys
 import os
 import time
 import random
-from datetime import date, time as dt_time
+from datetime import date, time as dt_time, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -21,8 +21,9 @@ from redis_client import DistributedLock, init_redis, close_redis
 
 
 NUM_SOLICITUDES = 10
-DOCTOR_ID = 1
-FECHA = "2025-08-01"
+DOCTOR_ID = 2
+# Fecha futura para no interferir con datos reales
+FECHA = str(date.today() + timedelta(days=60))
 HORA = "08:00"
 PACIENTE_BASE_ID = 1
 
@@ -33,14 +34,15 @@ async def setup_datos_prueba():
     async with AsyncSessionLocal() as session:
         doctor = await session.get(Doctor, DOCTOR_ID)
         if not doctor:
-            print("Error: No existe el doctor. Ejecute seed_data.py primero.")
+            print(f"Error: No existe el doctor #{DOCTOR_ID}. Ejecute seed_data.py primero.")
             sys.exit(1)
 
         paciente = await session.get(Paciente, PACIENTE_BASE_ID)
         if not paciente:
-            print("Error: No existe el paciente. Ejecute seed_data.py primero.")
+            print(f"Error: No existe el paciente #{PACIENTE_BASE_ID}. Ejecute seed_data.py primero.")
             sys.exit(1)
 
+        # Crear pacientes de prueba adicionales si no existen
         for i in range(2, NUM_SOLICITUDES + 1):
             p = await session.get(Paciente, i)
             if not p:
@@ -51,20 +53,25 @@ async def setup_datos_prueba():
                     email=f"test{i}@concurrent.com",
                     telefono="3000000000",
                     fecha_nacimiento=date(1990, 1, 1),
+                    password_hash="$2b$12$dummyhash",
                 )
                 session.add(p)
 
-        dia_semana = date.fromisoformat(FECHA).weekday()
-        stmt = Horario.__table__.select().where(
-            (Horario.doctor_id == DOCTOR_ID) &
-            (Horario.dia_semana == dia_semana) &
-            (Horario.activo == True)
+        # Crear horario de prueba en la fecha futura si no existe
+        from sqlalchemy import select, and_
+        fecha_obj = date.fromisoformat(FECHA)
+        stmt = select(Horario).where(
+            and_(
+                Horario.doctor_id == DOCTOR_ID,
+                Horario.fecha == fecha_obj,
+                Horario.activo == True,
+            )
         )
         result = await session.execute(stmt)
-        if result.fetchone() is None:
+        if result.scalar_one_or_none() is None:
             horario = Horario(
                 doctor_id=DOCTOR_ID,
-                dia_semana=dia_semana,
+                fecha=fecha_obj,
                 hora_inicio=dt_time(8, 0),
                 hora_fin=dt_time(12, 0),
                 activo=True,
@@ -72,7 +79,7 @@ async def setup_datos_prueba():
             session.add(horario)
 
         await session.commit()
-        print("Datos de prueba listos")
+        print(f"Datos de prueba listos — doctor #{DOCTOR_ID}, fecha {FECHA}")
 
 
 async def intentar_reserva(paciente_id: int, intento_num: int) -> dict:
@@ -149,6 +156,19 @@ async def probar_reserva_concurrente():
     print(f"Target: Doctor #{DOCTOR_ID}, Fecha {FECHA}, Hora {HORA}")
     print(f"Esperado: 1 exito, {NUM_SOLICITUDES - 1} rechazadas\n")
 
+    # Limpiar cita previa en el mismo slot si existe
+    async with AsyncSessionLocal() as session:
+        from sqlalchemy import delete
+        await session.execute(
+            delete(Cita).where(
+                Cita.doctor_id == DOCTOR_ID,
+                Cita.fecha == date.fromisoformat(FECHA),
+                Cita.hora == dt_time(8, 0),
+                Cita.motivo.like("Consulta de prueba%"),
+            )
+        )
+        await session.commit()
+
     tareas = [
         intentar_reserva(paciente_id=i, intento_num=i)
         for i in range(1, NUM_SOLICITUDES + 1)
@@ -162,7 +182,7 @@ async def probar_reserva_concurrente():
     print("Resultados detallados:")
     print("-" * 65)
     for r in resultados:
-        estado = "EXITO" if r["exito"] else "RECHAZADA"
+        estado = "EXITO   " if r["exito"] else "RECHAZADA"
         cita_info = f" -> Cita #{r['cita_id']}" if r["exito"] else ""
         error_info = f" -> {r['error'][:45]}" if r["error"] else ""
         print(f"  {estado} | Paciente #{r['paciente_id']:>2} | "
@@ -183,6 +203,14 @@ async def probar_reserva_concurrente():
         print("\nFAIL: Ninguna cita fue creada")
     else:
         print(f"\nFAIL: Se crearon {len(exitosas)} citas")
+
+    # Limpiar citas de prueba
+    async with AsyncSessionLocal() as session:
+        from sqlalchemy import delete
+        await session.execute(
+            delete(Cita).where(Cita.motivo.like("Consulta de prueba%"))
+        )
+        await session.commit()
 
 
 async def probar_lock_sin_redis():
@@ -220,7 +248,6 @@ async def probar_lock_sin_redis():
                     resultado["error"] = "Slot ocupado (detectado sin lock)"
                 else:
                     await asyncio.sleep(random.uniform(0.01, 0.03))
-
                     cita = Cita(
                         paciente_id=idx,
                         doctor_id=DOCTOR_ID,
