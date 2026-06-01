@@ -1,0 +1,55 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Convert README to index.html
+        run: |
+          sudo apt-get install -y pandoc
+          mkdir -p _site
+          pandoc README.md \
+            --from markdown+raw_html \
+            --to html5 \
+            --standalone \
+            --metadata title="cita.me" \
+            --css https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.5.1/github-markdown.min.css \
+            --variable "include-before=<article class=\"markdown-body\" style=\"max-width:900px;margin:40px auto;padding:0 20px\">" \
+            --variable "include-after=</article>" \
+            -o _site/index.html
+          # Copiar .env.example como referencia descargable
+          cp .env.example _site/.env.example 2>/dev/null || true
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

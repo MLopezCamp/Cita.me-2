@@ -11,10 +11,13 @@
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110-009688?style=for-the-badge&logo=fastapi&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-14-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-7-DC382D?style=for-the-badge&logo=redis&logoColor=white)
 ![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-aiosqlite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
+![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-async-D71F00?style=for-the-badge&logo=sqlalchemy&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![Grafana](https://img.shields.io/badge/Grafana-Loki-F46800?style=for-the-badge&logo=grafana&logoColor=white)
 
 </div>
 
@@ -291,23 +294,23 @@ Debe mostrar algo como `GNU Make 4.x`.
 Abre una terminal (en Windows: PowerShell o CMD; en Mac/Linux: Terminal) y ejecuta:
 
 ```bash
-git clone https://github.com/MLopezCamp/cita.me-redis.git
+git clone https://github.com/MLopezCamp/cita.me-2.git
 ```
 
-Esto creara una carpeta llamada `cita.me-redis` con todo el codigo.
+Esto creara una carpeta llamada `cita.me-2` con todo el codigo.
 
-> **Alternativa sin Git:** Ve a https://github.com/MLopezCamp/cita.me-redis, haz clic en el boton verde **"Code"** → **"Download ZIP"**, descomprime el archivo descargado.
+> **Alternativa sin Git:** Ve a https://github.com/MLopezCamp/cita.me-2, haz clic en el boton verde **"Code"** → **"Download ZIP"**, descomprime el archivo descargado.
 
 ---
 
 ### Paso 5 — Abrir la terminal en la carpeta del proyecto
 
-Es muy importante ejecutar los comandos desde dentro de la carpeta `cita.me-redis`.
+Es muy importante ejecutar los comandos desde dentro de la carpeta `cita.me-2`.
 
 #### Windows — PowerShell
 
 ```powershell
-cd cita.me-redis
+cd cita.me-2
 ```
 
 O: abre la carpeta en el Explorador de archivos, haz clic derecho en un espacio vacio y selecciona **"Abrir en Terminal"**.
@@ -315,7 +318,7 @@ O: abre la carpeta en el Explorador de archivos, haz clic derecho en un espacio 
 #### macOS — Terminal
 
 ```bash
-cd cita.me-redis
+cd cita.me-2
 ```
 
 O: arrastra la carpeta a la ventana de Terminal.
@@ -323,7 +326,7 @@ O: arrastra la carpeta a la ventana de Terminal.
 #### Linux — Terminal
 
 ```bash
-cd cita.me-redis
+cd cita.me-2
 ```
 
 **Verificar que estas en la carpeta correcta:**
@@ -453,7 +456,7 @@ Mientras la aplicacion este corriendo, estas son todas las URLs disponibles:
 
 ## Verificar notificaciones por email
 
-Las notificaciones se envian mediante **Resend**. Con la configuracion incluida en el proyecto, los emails llegan a la cuenta del desarrollador (`mlopez@cotecnova.edu.co`).
+Las notificaciones se envian mediante **Resend**. Con la configuracion incluida en el proyecto, los emails llegan a la cuenta del desarrollador.
 
 Para **verificar que el sistema envia emails correctamente** sin necesitar acceso a ese correo, revisa los logs del worker:
 
@@ -642,8 +645,8 @@ Docker Desktop en Windows requiere **WSL 2** (Windows Subsystem for Linux). Si e
 Si quieres modificar el codigo fuente, asegurate de tener **Docker**, **Git** y **Make** instalados.
 
 ```bash
-git clone https://github.com/MLopezCamp/cita.me-redis.git
-cd cita.me-redis
+git clone https://github.com/MLopezCamp/cita.me-2.git
+cd cita.me-2
 make deploy
 ```
 
