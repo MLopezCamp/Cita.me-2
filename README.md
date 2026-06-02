@@ -257,6 +257,8 @@ Debe mostrar algo como `git version 2.x.x`.
 
 `make` es la herramienta que permite ejecutar el despliegue con un solo comando. En Mac y Linux ya viene instalado. En Windows hay que instalarlo.
 
+> **Importante:** El makefile de este proyecto detecta automaticamente si estas en Windows y usa los comandos correctos. No necesitas Git Bash, WSL ni ninguna capa de Unix — funciona directamente desde CMD o PowerShell.
+
 #### Opcion A — Con Winget (recomendado, Windows 10/11)
 
 Abre **PowerShell como administrador** (click derecho en el menu de inicio → "Windows PowerShell (Administrador)") y ejecuta:
@@ -265,7 +267,14 @@ Abre **PowerShell como administrador** (click derecho en el menu de inicio → "
 winget install GnuWin32.Make
 ```
 
-Luego cierra y vuelve a abrir la terminal.
+Luego agrega Make al PATH. En la misma terminal de administrador ejecuta:
+
+```powershell
+$env:PATH += ";C:\Program Files (x86)\GnuWin32\bin"
+[Environment]::SetEnvironmentVariable("PATH", $env:PATH, "Machine")
+```
+
+Cierra y vuelve a abrir la terminal.
 
 #### Opcion B — Con Chocolatey
 
@@ -343,7 +352,7 @@ Debes ver archivos como `docker-compose.yml`, `makefile`, `README.md`, etc.
 
 Este es el unico comando que necesitas. Hace todo automaticamente: configura el entorno, construye las imagenes y levanta todos los servicios.
 
-#### Con Make (recomendado)
+#### Con Make (recomendado) — funciona en Windows CMD, PowerShell, Mac y Linux
 
 ```bash
 make deploy
@@ -602,9 +611,26 @@ Cierra el programa que usa el puerto o reinicia la computadora e intenta de nuev
 
 **Error:** `'make' is not recognized as an internal or external command`
 
-**Solucion:** Make no esta instalado en Windows. Tienes dos opciones:
-- Instalarlo segun el [Paso 3](#paso-3--instalar-make-solo-windows)
+**Solucion:** Make no esta instalado o no esta en el PATH. Tienes dos opciones:
+- Instalarlo segun el [Paso 3](#paso-3--instalar-make-solo-windows) (incluye el paso de agregar al PATH)
 - Usar los comandos directos de Docker del apartado [Sin Make — Windows PowerShell](#sin-make--windows-powershell)
+
+---
+
+### Comandos como "test" o "cp" no se reconocen en Windows
+
+**Error:** `"test" no se reconoce como un comando interno o externo` o similar con `cp`, `sleep`
+
+**Causa:** Version antigua del proyecto o Make no esta usando el makefile actualizado.
+
+**Solucion:** Asegurate de tener la ultima version del repositorio:
+
+```bash
+git pull
+make deploy
+```
+
+El makefile actualizado detecta Windows automaticamente y usa los comandos correctos. No necesitas Git Bash ni WSL.
 
 ---
 

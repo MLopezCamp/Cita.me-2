@@ -4,6 +4,18 @@
 
 PROD = docker compose -f docker-compose.prod.yml
 
+# ── Deteccion de sistema operativo ──────────────────────────────────────────
+# Windows establece OS=Windows_NT; Mac y Linux no definen esta variable.
+ifeq ($(OS),Windows_NT)
+COPY_ENV = if not exist .env copy .env.example .env && echo   [OK] .env configurado
+WAIT     = ping -n 9 127.0.0.1 > nul
+DEVNULL  = nul
+else
+COPY_ENV = test -f .env || (cp .env.example .env && echo "  [OK] .env creado desde .env.example") && echo "  [OK] .env encontrado"
+WAIT     = sleep 8
+DEVNULL  = /dev/null
+endif
+
 help:
 	@echo ""
 	@echo "  ┌─────────────────────────────────────────────────┐"
@@ -41,13 +53,12 @@ deploy:
 	@echo ""
 	@echo "  cita.me — Despliegue limpio"
 	@echo ""
-	@test -f .env || (cp .env.example .env && echo "  [OK] .env creado desde .env.example")
-	@test -f .env && echo "  [OK] .env encontrado"
-	docker compose down -v --remove-orphans 2>/dev/null || true
+	@$(COPY_ENV)
+	-docker compose down -v --remove-orphans
 	docker compose up -d --build
 	@echo ""
 	@echo "  Esperando que los servicios esten listos..."
-	@sleep 8
+	@$(WAIT)
 	$(MAKE) test
 	$(MAKE) status
 
@@ -87,12 +98,22 @@ status:
 	@echo ""
 	@docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
 
+# ── Test de salud de servicios (cross-platform) ──────────────────────────────
+ifeq ($(OS),Windows_NT)
+test:
+	@echo Testeando servicios...
+	@docker exec citame-backend curl -s http://localhost:8000/health | findstr "healthy" > nul && echo   Backend OK || echo   Backend FAIL
+	@docker exec citame-redis redis-cli ping | findstr "PONG" > nul && echo   Redis OK || echo   Redis FAIL
+	@docker exec citame-rabbitmq rabbitmq-diagnostics check_running > nul 2>&1 && echo   RabbitMQ OK || echo   RabbitMQ FAIL
+	@docker inspect -f "{{.State.Running}}" citame-grafana > nul 2>&1 && echo   Grafana OK || echo   Grafana FAIL
+else
 test:
 	@echo "Testeando servicios..."
 	@curl -s http://localhost:8000/health | grep -q "healthy" && echo "  Backend OK" || echo "  Backend FAIL"
 	@curl -s http://localhost:3200/api/health | grep -q "ok" && echo "  Grafana OK" || echo "  Grafana FAIL"
 	@docker exec citame-redis redis-cli ping | grep -q "PONG" && echo "  Redis OK" || echo "  Redis FAIL"
 	@docker exec citame-rabbitmq rabbitmq-diagnostics check_running > /dev/null 2>&1 && echo "  RabbitMQ OK" || echo "  RabbitMQ FAIL"
+endif
 
 clean:
 	docker compose down -v
@@ -138,11 +159,11 @@ pull:
 	$(PROD) pull
 
 start:
-	@test -f .env || (cp .env.example .env && echo "  [OK] .env creado desde .env.example")
+	@$(COPY_ENV)
 	$(PROD) pull
 	$(PROD) up -d
 	@echo "  Esperando que los servicios esten listos..."
-	@sleep 8
+	@$(WAIT)
 	$(MAKE) prod-status
 
 stop:
